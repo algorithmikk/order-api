@@ -31,7 +31,7 @@ public class OrderService {
     }
 
     public List<Order> getCustomerOrders(String customerId) {
-        return orderRepository.findByCustomerId(customerId);
+        return orderRepository.findByStoreId(customerId);
     }
 
     public List<Order> getStoreOrders(String storeId, String status) {

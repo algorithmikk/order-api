@@ -25,7 +25,7 @@ public class OrderRepository {
         return order;
     }
 
-    public Optional<Order> findById(String orderId) {
+    public Optional<Order> findById(String orderId, String customerId) {
         return Optional.ofNullable(dynamoDBMapper.load(Order.class, orderId));
     }
 
