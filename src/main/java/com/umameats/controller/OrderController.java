@@ -3,6 +3,7 @@ package com.umameats.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,6 +20,11 @@ import com.umameats.service.OrderService;
 
 @RestController
 @RequestMapping("/api/v1/orders")
+@CrossOrigin(origins = {
+    "https://www.umameats.com",
+    "https://umameats.com",
+    "http://localhost:3000"
+}, allowCredentials = "true")
 public class OrderController {
     private final OrderService orderService;
 

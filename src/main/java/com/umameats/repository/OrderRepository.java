@@ -58,3 +58,4 @@ public class OrderRepository {
 
         return dynamoDBMapper.query(Order.class, queryExpression);
     }
+}

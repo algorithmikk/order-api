@@ -1,6 +1,7 @@
 package com.umameats.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
@@ -9,6 +10,7 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTypeConvertedEnum;
 
 import lombok.Data;
+
 
 @Data
 @DynamoDBTable(tableName = "umameats-orders")
