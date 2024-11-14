@@ -11,7 +11,8 @@ public class WebConfig implements WebMvcConfigurer {
             .allowedOrigins(
                 "https://www.umameats.com",
                 "https://umameats.com",
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "https://umameats-customer-app.vercel.app"
             )
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*")

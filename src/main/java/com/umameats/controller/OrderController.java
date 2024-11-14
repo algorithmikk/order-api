@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 
 import com.umameats.model.Order;
 import com.umameats.model.OrderStatus;
@@ -20,11 +22,11 @@ import com.umameats.service.OrderService;
 
 @RestController
 @RequestMapping("/api/v1/orders")
-@CrossOrigin(origins = {
-    "https://www.umameats.com",
-    "https://umameats.com",
-    "http://localhost:3000"
-}, allowCredentials = "true")
+@CrossOrigin(
+    origins = {"http://localhost:3000", "https://www.umameats.com", "https://umameats.com", "https://umameats-customer-app.vercel.app"},
+    allowCredentials = "true",
+    allowedHeaders = {"Authorization", "Content-Type", "Accept"},
+    methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
 public class OrderController {
     private final OrderService orderService;
 
