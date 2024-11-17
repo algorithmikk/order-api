@@ -58,4 +58,17 @@ public class OrderRepository {
     public List<Order> findByStoreId(String storeId) {
         return findByStoreIdAndStatus(storeId, null);
     }
+
+    public List<Order> findByCustomerId(String customerId) {
+        Map<String, AttributeValue> eav = new HashMap<>();
+        eav.put(":customerId", new AttributeValue().withS(customerId));
+
+        DynamoDBQueryExpression<Order> queryExpression = new DynamoDBQueryExpression<Order>()
+                .withIndexName("customer-orders-index")
+                .withConsistentRead(false)
+                .withKeyConditionExpression("customerId = :customerId")
+                .withExpressionAttributeValues(eav);
+
+        return dynamoDBMapper.query(Order.class, queryExpression);
+    }
 }
