@@ -34,6 +34,10 @@ public class Order {
     private String customerId;
 
     @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String paymentIntentId;
+
+    @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.L)
     private List<OrderItem> items;
 

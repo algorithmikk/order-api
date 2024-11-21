@@ -1,6 +1,8 @@
 package com.umameats.model;
 
 public enum OrderStatus {
+    PENDING_PAYMENT,
+    PAYMENT_FAILED,
     CREATED,
     CONFIRMED,
     PREPARING,

@@ -88,6 +88,19 @@
     <artifactId>jackson-databind</artifactId>
 </dependency>
 
+<!-- Spring WebFlux for WebClient -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-webflux</artifactId>
+</dependency>
+
+<!-- Reactor Test for testing reactive code -->
+<dependency>
+    <groupId>io.projectreactor</groupId>
+    <artifactId>reactor-test</artifactId>
+    <scope>test</scope>
+</dependency>
+
 		
 	</dependencies>
 

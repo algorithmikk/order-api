@@ -6,23 +6,55 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
+import com.umameats.client.PaymentApiClient;
 import com.umameats.model.Order;
 import com.umameats.model.OrderStatus;
+import com.umameats.model.TransactionRequest;
 import com.umameats.repository.OrderRepository;
 
 @Service
 public class OrderService {
     private final OrderRepository orderRepository;
+    private final PaymentApiClient paymentApiClient;
 
-    public OrderService(OrderRepository orderRepository) {
+    public OrderService(OrderRepository orderRepository, PaymentApiClient paymentApiClient) {
         this.orderRepository = orderRepository;
+        this.paymentApiClient = paymentApiClient;
     }
 
-    public Order createOrder(Order order) {
+        public Order createOrder(Order order) {
+        // Create order first
         order.setOrderId(UUID.randomUUID().toString());
         order.setOrderDate(LocalDateTime.now());
-        order.setStatus(OrderStatus.CREATED);
-        return orderRepository.save(order);
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+        Order savedOrder = orderRepository.save(order);
+
+        // Create payment transaction
+        TransactionRequest transactionRequest = new TransactionRequest();
+        transactionRequest.setOrderId(savedOrder.getOrderId());
+        transactionRequest.setCustomerId(savedOrder.getCustomerId());
+        transactionRequest.setStoreId(savedOrder.getStoreId());
+        transactionRequest.setAmount(savedOrder.getTotalAmount());
+        transactionRequest.setPaymentMethod(savedOrder.getPaymentMethod());
+
+        // Call payment API
+        paymentApiClient.createTransaction(transactionRequest, order.getCustomerId())
+            .subscribe(
+                transactionResponse -> {
+                    // Update order with payment info
+                    savedOrder.setPaymentIntentId(transactionResponse.getClientSecret());
+                    savedOrder.setStatus(OrderStatus.CREATED);
+                    orderRepository.save(savedOrder);
+                },
+                error -> {
+                    // Handle payment creation error
+                    savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
+                    orderRepository.save(savedOrder);
+                    throw new RuntimeException("Payment creation failed", error);
+                }
+            );
+
+        return savedOrder;
     }
 
     public Order getOrder(String orderId, String customerId) {
