@@ -6,5 +6,4 @@ import lombok.Data;
 public class TransactionResponse {
     private String transactionId;
     private String status;
-    private String clientSecret;  // For Stripe
 }

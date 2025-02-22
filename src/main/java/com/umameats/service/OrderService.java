@@ -29,25 +29,25 @@ public class OrderService {
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         Order savedOrder = orderRepository.save(order);
 
-        // Create payment transaction
-        TransactionRequest transactionRequest = new TransactionRequest();
-        transactionRequest.setOrderId(savedOrder.getOrderId());
-        transactionRequest.setCustomerId(savedOrder.getCustomerId());
-        transactionRequest.setStoreId(savedOrder.getStoreId());
-        transactionRequest.setAmount(savedOrder.getTotalAmount());
-        transactionRequest.setPaymentMethod(savedOrder.getPaymentMethod());
+        // Create payment transaction with full payment details
+        TransactionRequest transactionRequest = TransactionRequest.builder()
+            .orderId(savedOrder.getOrderId())
+            .customerId(savedOrder.getCustomerId())
+            .storeId(savedOrder.getStoreId())
+            .amount(savedOrder.getTotalAmount())
+            .paymentMethodId(savedOrder.getPaymentMethodId())
+            .currency(savedOrder.getBillingDetails().getCurrency())
+            .billingDetails(savedOrder.getBillingDetails())
+            .build();
 
         // Call payment API
         paymentApiClient.createTransaction(transactionRequest, order.getCustomerId())
             .subscribe(
                 transactionResponse -> {
-                    // Update order with payment info
-                    savedOrder.setPaymentIntentId(transactionResponse.getClientSecret());
                     savedOrder.setStatus(OrderStatus.CREATED);
                     orderRepository.save(savedOrder);
                 },
                 error -> {
-                    // Handle payment creation error
                     savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
                     orderRepository.save(savedOrder);
                     throw new RuntimeException("Payment creation failed", error);
