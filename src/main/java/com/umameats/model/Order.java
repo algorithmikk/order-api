@@ -64,11 +64,9 @@ public class Order {
     @DynamoDBTyped(DynamoDBAttributeType.S)
     private String specialInstructions;
 
-    @DynamoDBAttribute
-    @DynamoDBTyped(DynamoDBAttributeType.S)
+
     private String paymentMethodId;  // Added for Stripe payment method
 
-    @DynamoDBAttribute
     private BillingDetails billingDetails;  // New class we'll create
 }
 
