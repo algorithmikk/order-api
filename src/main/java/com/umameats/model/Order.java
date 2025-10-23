@@ -35,6 +35,11 @@ public class Order {
 
     @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.S)
+    @DynamoDBIndexHashKey(globalSecondaryIndexName = "driver-orders-index")
+    private String driverId;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
     private String paymentIntentId;
 
     @DynamoDBAttribute
@@ -71,6 +76,10 @@ public class Order {
 
     @DynamoDBAttribute
     private BillingDetails billingDetails;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String storeName;
 }
 
 
