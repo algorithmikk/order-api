@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.umameats.client.EventApiClient;
 import com.umameats.client.PaymentApiClient;
+import com.umameats.kafka.OrderEventProducer;
 
 import com.umameats.model.DeliveryAddress;
 import com.umameats.model.DeliveryEvent;
@@ -21,6 +22,7 @@ import com.umameats.repository.OrderRepository;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.stream.Collectors;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -28,13 +30,16 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final PaymentApiClient paymentApiClient;
     private final EventApiClient eventApiClient;
+    private final OrderEventProducer orderEventProducer;
 
-    public OrderService(OrderRepository orderRepository, 
+    public OrderService(OrderRepository orderRepository,
                         PaymentApiClient paymentApiClient,
-                        EventApiClient eventApiClient) {
+                        EventApiClient eventApiClient,
+                        OrderEventProducer orderEventProducer) {
         this.orderRepository = orderRepository;
         this.paymentApiClient = paymentApiClient;
         this.eventApiClient = eventApiClient;
+        this.orderEventProducer = orderEventProducer;
     }
 
     public Order createOrder(Order order) {
@@ -43,6 +48,10 @@ public class OrderService {
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         Order savedOrder = orderRepository.save(order);
+
+        // Publish order created event to Kafka
+        orderEventProducer.publishOrderCreated(savedOrder.getOrderId(), savedOrder);
+        log.info("Published ORDER_CREATED event for orderId: {}", savedOrder.getOrderId());
 
         // Create payment transaction with full payment details
         TransactionRequest transactionRequest = TransactionRequest.builder()
@@ -59,19 +68,12 @@ public class OrderService {
         paymentApiClient.createTransaction(transactionRequest, order.getCustomerId())
             .subscribe(
                 transactionResponse -> {
-                    // Update order status on successful payment
-                    // Keep status as CREATED - restaurant will update to PREPARING, then READY_FOR_PICKUP
-                    savedOrder.setStatus(OrderStatus.CREATED);
-                    orderRepository.save(savedOrder);
-                    log.info("Order created successfully after payment: {}", savedOrder.getOrderId());
-
-                    // DO NOT create delivery event here - wait for restaurant to mark READY_FOR_PICKUP
+                    // Payment success will be handled by PaymentEventConsumer
+                    log.info("Payment transaction initiated for order: {}", savedOrder.getOrderId());
                 },
                 error -> {
-                    savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
-                    orderRepository.save(savedOrder);
-                    log.error("Payment creation failed for order: {}", savedOrder.getOrderId(), error);
-                    throw new RuntimeException("Payment creation failed", error);
+                    // Payment failure will be handled by PaymentEventConsumer
+                    log.error("Payment transaction failed for order: {}", savedOrder.getOrderId(), error);
                 }
             );
 
@@ -200,8 +202,25 @@ public class OrderService {
 
     public Order updateOrderStatus(String orderId, String customerId, OrderStatus newStatus) {
         Order order = getOrder(orderId, customerId);
+        OrderStatus oldStatus = order.getStatus();
         order.setStatus(newStatus);
-        return orderRepository.save(order);
+        Order updatedOrder = orderRepository.save(order);
+
+        // Publish order status change event
+        orderEventProducer.publishOrderStatusChange(orderId, newStatus.toString(), updatedOrder);
+
+        // Publish customer notification
+        Map<String, Object> customerNotification = Map.of(
+            "eventType", "ORDER_STATUS_UPDATED",
+            "orderId", orderId,
+            "customerId", customerId,
+            "oldStatus", oldStatus.toString(),
+            "newStatus", newStatus.toString(),
+            "timestamp", System.currentTimeMillis()
+        );
+        orderEventProducer.publishCustomerNotification(customerId, orderId, customerNotification);
+
+        return updatedOrder;
     }
 
     /**
@@ -232,6 +251,20 @@ public class OrderService {
         Order updatedOrder = orderRepository.save(order);
 
         log.info("Restaurant updated order {} status from {} to {}", orderId, oldStatus, newStatus);
+
+        // Publish order status change event
+        orderEventProducer.publishOrderStatusChange(orderId, newStatus.toString(), updatedOrder);
+
+        // Publish customer notification
+        Map<String, Object> customerNotification = Map.of(
+            "eventType", "ORDER_STATUS_UPDATED",
+            "orderId", orderId,
+            "customerId", updatedOrder.getCustomerId(),
+            "oldStatus", oldStatus.toString(),
+            "newStatus", newStatus.toString(),
+            "timestamp", System.currentTimeMillis()
+        );
+        orderEventProducer.publishCustomerNotification(updatedOrder.getCustomerId(), orderId, customerNotification);
 
         // If status changed to READY_FOR_PICKUP, create and send delivery event
         if (newStatus == OrderStatus.READY_FOR_PICKUP && oldStatus != OrderStatus.READY_FOR_PICKUP) {

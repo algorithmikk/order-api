@@ -101,7 +101,13 @@
     <scope>test</scope>
 </dependency>
 
-		
+<!-- Kafka for event-driven architecture -->
+<dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
+</dependency>
+
+
 	</dependencies>
 
 	<build>
