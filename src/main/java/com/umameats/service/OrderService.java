@@ -60,11 +60,12 @@ public class OrderService {
             .subscribe(
                 transactionResponse -> {
                     // Update order status on successful payment
+                    // Keep status as CREATED - restaurant will update to PREPARING, then READY_FOR_PICKUP
                     savedOrder.setStatus(OrderStatus.CREATED);
-                    Order updatedOrder = orderRepository.save(savedOrder);
-                    
-                    // After successful payment, create and send delivery event
-                    createAndSendDeliveryEvent(updatedOrder);
+                    orderRepository.save(savedOrder);
+                    log.info("Order created successfully after payment: {}", savedOrder.getOrderId());
+
+                    // DO NOT create delivery event here - wait for restaurant to mark READY_FOR_PICKUP
                 },
                 error -> {
                     savedOrder.setStatus(OrderStatus.PAYMENT_FAILED);
@@ -99,12 +100,9 @@ public class OrderService {
             eventApiClient.createDeliveryEvent(order.getOrderId(), eventRequest)
                 .subscribe(
                     response -> {
-                        log.info("Delivery event created successfully for order: {}, eventId: {}", 
+                        log.info("Delivery event created successfully for order: {}, eventId: {}",
                                 order.getOrderId(), response.getEventId());
-                        
-                        // Update order status to ready for pickup
-                        order.setStatus(OrderStatus.READY_FOR_PICKUP);
-                        orderRepository.save(order);
+                        // Order status is already READY_FOR_PICKUP, no need to update again
                     },
                     error -> {
                         log.error("Failed to create delivery event for order: {}", order.getOrderId(), error);
@@ -204,5 +202,77 @@ public class OrderService {
         Order order = getOrder(orderId, customerId);
         order.setStatus(newStatus);
         return orderRepository.save(order);
+    }
+
+    /**
+     * Updates order status by restaurant/store
+     * Triggers delivery event when status becomes READY_FOR_PICKUP
+     *
+     * @param orderId The order ID
+     * @param storeId The store ID (for authorization)
+     * @param newStatus The new status
+     * @return Updated order
+     */
+    public Order updateOrderStatusByRestaurant(String orderId, String storeId, OrderStatus newStatus) {
+        // Find the order
+        Order order = orderRepository.findById(orderId, null)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // Verify the store owns this order
+        if (!order.getStoreId().equals(storeId)) {
+            throw new RuntimeException("Access denied - order does not belong to this store");
+        }
+
+        // Validate status transition
+        validateRestaurantStatusTransition(order.getStatus(), newStatus);
+
+        // Update status
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(newStatus);
+        Order updatedOrder = orderRepository.save(order);
+
+        log.info("Restaurant updated order {} status from {} to {}", orderId, oldStatus, newStatus);
+
+        // If status changed to READY_FOR_PICKUP, create and send delivery event
+        if (newStatus == OrderStatus.READY_FOR_PICKUP && oldStatus != OrderStatus.READY_FOR_PICKUP) {
+            log.info("Order {} is ready for pickup, creating delivery event", orderId);
+            createAndSendDeliveryEvent(updatedOrder);
+        }
+
+        return updatedOrder;
+    }
+
+    /**
+     * Validates that the restaurant can transition from old status to new status
+     */
+    private void validateRestaurantStatusTransition(OrderStatus oldStatus, OrderStatus newStatus) {
+        // Restaurant can only update certain statuses
+        if (oldStatus == OrderStatus.PENDING_PAYMENT || oldStatus == OrderStatus.PAYMENT_FAILED) {
+            throw new RuntimeException("Cannot update order status - payment not completed");
+        }
+
+        // Valid transitions for restaurant:
+        // CREATED -> PREPARING
+        // PREPARING -> READY_FOR_PICKUP
+        // Any -> CANCELLED
+
+        if (newStatus == OrderStatus.CANCELLED) {
+            return; // Can always cancel
+        }
+
+        if (oldStatus == OrderStatus.CREATED && newStatus == OrderStatus.PREPARING) {
+            return; // Valid
+        }
+
+        if (oldStatus == OrderStatus.PREPARING && newStatus == OrderStatus.READY_FOR_PICKUP) {
+            return; // Valid
+        }
+
+        // Allow going directly from CREATED to READY_FOR_PICKUP (skip PREPARING)
+        if (oldStatus == OrderStatus.CREATED && newStatus == OrderStatus.READY_FOR_PICKUP) {
+            return; // Valid
+        }
+
+        throw new RuntimeException("Invalid status transition from " + oldStatus + " to " + newStatus);
     }
 }

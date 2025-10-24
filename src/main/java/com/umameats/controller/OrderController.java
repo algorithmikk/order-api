@@ -14,14 +14,16 @@ import com.umameats.service.OrderService;
 @RequestMapping("/api/v1/orders")
 @CrossOrigin(
     origins = {
-        "http://localhost:3000", 
-        "https://www.umameats.com", 
-        "https://umameats.com", 
-        "https://umameats-customer-app.vercel.app"
+        "http://localhost:3000",
+        "https://www.umameats.com",
+        "https://umameats.com",
+        "https://umameats-customer-app.vercel.app",
+        "https://umameats-landing-saas.vercel.app",
+        "https://umameats-driver-app.vercel.app"
     },
     allowCredentials = "true",
-    allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Customer-Id"},
-    methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.DELETE}
+    allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Customer-Id", "X-Store-Id", "X-Driver-Id"},
+    methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.DELETE, RequestMethod.OPTIONS}
 )
 public class OrderController {
     private final OrderService orderService;
@@ -100,6 +102,25 @@ public class OrderController {
                     .body(Map.of("error", "Access denied"));
             }
             Order updatedOrder = orderService.updateOrderStatus(orderId, customerId, status);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (Exception e) {
+            return ResponseEntity.status(400)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Update order status by restaurant/store
+     * This endpoint is used by restaurant owners to update order status
+     */
+    @PatchMapping("/{orderId}/status/restaurant")
+    public ResponseEntity<?> updateOrderStatusByRestaurant(
+            @PathVariable String orderId,
+            @RequestHeader("X-Store-Id") String storeId,
+            @RequestBody OrderStatus status
+    ) {
+        try {
+            Order updatedOrder = orderService.updateOrderStatusByRestaurant(orderId, storeId, status);
             return ResponseEntity.ok(updatedOrder);
         } catch (Exception e) {
             return ResponseEntity.status(400)
