@@ -8,7 +8,8 @@ public enum OrderStatus {
     PREPARING,
     READY_FOR_PICKUP,
     DRIVER_EN_ROUTE_TO_STORE,  // Driver accepted and heading to restaurant
-    OUT_FOR_DELIVERY,           // Driver picked up food and heading to customer
+    PICKED_UP,                  // Driver confirmed pickup at restaurant
+    OUT_FOR_DELIVERY,           // Driver heading to customer with food
     DELIVERED,
     CANCELLED
 }
