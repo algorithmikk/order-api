@@ -53,6 +53,9 @@ public class OrderService {
         orderEventProducer.publishOrderCreated(savedOrder.getOrderId(), savedOrder);
         log.info("Published ORDER_CREATED event for orderId: {}", savedOrder.getOrderId());
 
+        // Fetch store's connected account ID for direct transfer
+        String connectedAccountId = fetchStoreConnectedAccountId(savedOrder.getStoreId());
+
         // Create payment transaction with full payment details
         TransactionRequest transactionRequest = TransactionRequest.builder()
             .orderId(savedOrder.getOrderId())
@@ -62,6 +65,7 @@ public class OrderService {
             .paymentMethodId(savedOrder.getPaymentMethodId())
             .currency(savedOrder.getBillingDetails().getCurrency())
             .billingDetails(savedOrder.getBillingDetails())
+            .connectedAccountId(connectedAccountId)  // Add connected account for direct transfer
             .build();
 
         // Call payment API
@@ -78,6 +82,42 @@ public class OrderService {
             );
 
         return savedOrder;
+    }
+
+    /**
+     * Fetch store's Stripe Connect account ID from payment-api
+     */
+    private String fetchStoreConnectedAccountId(String storeId) {
+        try {
+            // Call payment-api to get store's payout method
+            String url = "https://api.umameats.com/api/v1/payments/payout-methods/store/" + storeId;
+
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            org.springframework.http.ResponseEntity<java.util.List> response = restTemplate.exchange(
+                url,
+                org.springframework.http.HttpMethod.GET,
+                null,
+                java.util.List.class
+            );
+
+            if (response.getBody() != null && !response.getBody().isEmpty()) {
+                // Get the first (default) payout method
+                java.util.Map<String, Object> payoutMethod = (java.util.Map<String, Object>) response.getBody().get(0);
+                String connectedAccountId = (String) payoutMethod.get("connectedAccountId");
+
+                if (connectedAccountId != null) {
+                    log.info("Found connected account ID for store {}: {}", storeId, connectedAccountId);
+                    return connectedAccountId;
+                }
+            }
+
+            log.warn("No connected account found for store: {}", storeId);
+            return null;
+
+        } catch (Exception e) {
+            log.error("Error fetching connected account for store {}: {}", storeId, e.getMessage());
+            return null;
+        }
     }
     
     /**

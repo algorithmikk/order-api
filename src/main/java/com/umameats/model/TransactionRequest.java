@@ -12,5 +12,6 @@ public class TransactionRequest {
     private Long amount;
     private String paymentMethodId;
     private String currency;
-    private BillingDetails billingDetails;  // Added
+    private BillingDetails billingDetails;
+    private String connectedAccountId;  // Store's Stripe Connect account ID for direct transfer
 }
