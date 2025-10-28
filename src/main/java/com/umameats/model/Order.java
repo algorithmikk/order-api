@@ -80,6 +80,14 @@ public class Order {
     @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.S)
     private String storeName;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long deliveryFee;  // Delivery fee in cents
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long tip;  // Tip amount in cents
 }
 
 
