@@ -96,6 +96,35 @@ public class Order {
     @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.N)
     private Long tip;  // Tip amount in cents
+
+    // Delivery assignment fields
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String assignedDriverId;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String assignedDriverName;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String assignedDriverPhone;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String deliveryStatus;  // UNASSIGNED, ASSIGNED, ACCEPTED, PICKED_UP, DELIVERED
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long assignedAt;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long acceptedAt;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.SS)
+    private List<String> declinedByDrivers;  // List of driver IDs who declined this delivery
 }
 
 

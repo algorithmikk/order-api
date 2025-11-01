@@ -162,11 +162,19 @@ public class OrderService {
                 order.setStoreName((String) storeInfo.get("name"));
                 order.setStorePhone((String) storeInfo.get("phoneNumber"));
                 order.setPickupAddress(formatStoreAddress(storeInfo));
-
-                // Save the updated order with pickup details
-                orderRepository.save(order);
-                log.info("Updated order {} with store pickup details", order.getOrderId());
             }
+
+            // Initialize delivery assignment status
+            order.setDeliveryStatus("UNASSIGNED");
+            order.setAssignedDriverId(null);
+            order.setAssignedDriverName(null);
+            order.setAssignedDriverPhone(null);
+            order.setAssignedAt(null);
+            order.setAcceptedAt(null);
+
+            // Save the updated order with pickup details and delivery status
+            orderRepository.save(order);
+            log.info("Updated order {} with store pickup details and delivery status UNASSIGNED", order.getOrderId());
 
             // Create the delivery event
             DeliveryEvent deliveryEvent = createDeliveryEventFromOrder(order);
