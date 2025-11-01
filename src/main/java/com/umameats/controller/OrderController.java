@@ -17,9 +17,9 @@ import com.umameats.service.OrderService;
         "http://localhost:3000",
         "https://www.umameats.com",
         "https://umameats.com",
-        "https://umameats-customer-app.vercel.app",
+        "https://customer.umameats.com",
         "https://umameats-landing-saas.vercel.app",
-        "https://umameats-driver-app.vercel.app"
+        "https://driver.umameats.com"
     },
     allowCredentials = "true",
     allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Customer-Id", "X-Store-Id", "X-Driver-Id"},

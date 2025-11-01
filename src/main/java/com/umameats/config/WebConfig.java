@@ -14,7 +14,7 @@ public class WebConfig implements WebMvcConfigurer {
                 "https://www.umameats.com",
                 "https://umameats.com",
                 "http://localhost:3000",
-                "https://umameats-customer-app.vercel.app"
+                "https://customer.umameats.com"
             )
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")  // Added PATCH
             .allowedHeaders("Content-Type", "X-Customer-Id", "Authorization", "*")  // Explicitly list important headers
