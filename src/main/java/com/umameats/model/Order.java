@@ -82,6 +82,14 @@ public class Order {
     private String storeName;
 
     @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String storePhone;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String pickupAddress;
+
+    @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.N)
     private Long deliveryFee;  // Delivery fee in cents
 

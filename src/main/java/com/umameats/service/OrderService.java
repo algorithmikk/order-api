@@ -119,17 +119,58 @@ public class OrderService {
             return null;
         }
     }
+
+    /**
+     * Fetch store information from store-api-rest
+     */
+    private Map<String, Object> fetchStoreInfo(String storeId) {
+        try {
+            String url = "https://api.umameats.com/api/v1/stores/" + storeId;
+
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            org.springframework.http.ResponseEntity<Map> response = restTemplate.exchange(
+                url,
+                org.springframework.http.HttpMethod.GET,
+                null,
+                Map.class
+            );
+
+            if (response.getBody() != null) {
+                log.info("Fetched store info for store {}", storeId);
+                return response.getBody();
+            }
+
+            log.warn("No store info found for store: {}", storeId);
+            return null;
+
+        } catch (Exception e) {
+            log.error("Error fetching store info for store {}: {}", storeId, e.getMessage());
+            return null;
+        }
+    }
     
     /**
      * Creates and sends a delivery event for the given order
-     * 
+     *
      * @param order The order to create a delivery event for
      */
     private void createAndSendDeliveryEvent(Order order) {
         try {
+            // Fetch store info and populate order with pickup details
+            Map<String, Object> storeInfo = fetchStoreInfo(order.getStoreId());
+            if (storeInfo != null) {
+                order.setStoreName((String) storeInfo.get("name"));
+                order.setStorePhone((String) storeInfo.get("phoneNumber"));
+                order.setPickupAddress(formatStoreAddress(storeInfo));
+
+                // Save the updated order with pickup details
+                orderRepository.save(order);
+                log.info("Updated order {} with store pickup details", order.getOrderId());
+            }
+
             // Create the delivery event
             DeliveryEvent deliveryEvent = createDeliveryEventFromOrder(order);
-            
+
             // Create the event request
             EventRequest eventRequest = EventRequest.builder()
                 .eventType("DELIVERY_EVENT")
@@ -137,7 +178,7 @@ public class OrderService {
                 .payload(deliveryEvent)
                 .timestamp(LocalDateTime.now())
                 .build();
-            
+
             // Send to the event API
             eventApiClient.createDeliveryEvent(order.getOrderId(), eventRequest)
                 .subscribe(
@@ -157,20 +198,35 @@ public class OrderService {
     
     /**
      * Creates a delivery event object from an order
-     * 
+     *
      * @param order The order to create a delivery event from
      * @return A delivery event populated with order data
      */
     private DeliveryEvent createDeliveryEventFromOrder(Order order) {
         // Generate a delivery ID
         String deliveryId = UUID.randomUUID().toString();
-        
+
         // Convert delivery address to location
         DeliveryEvent.Location deliveryLocation = convertAddressToLocation(order.getDeliveryAddress());
-        
+
+        // Fetch store info and create pickup location
+        DeliveryEvent.Location pickupLocation = null;
+        Map<String, Object> storeInfo = fetchStoreInfo(order.getStoreId());
+        if (storeInfo != null) {
+            pickupLocation = DeliveryEvent.Location.builder()
+                    .address((String) storeInfo.get("address"))
+                    .city((String) storeInfo.get("city"))
+                    .state((String) storeInfo.get("state"))
+                    .postalCode((String) storeInfo.get("zipCode"))
+                    .latitude(0.00)
+                    .longitude(0.00)
+                    .formattedAddress(formatStoreAddress(storeInfo))
+                    .build();
+        }
+
         // Create order items for the payload
         List<DeliveryEvent.OrderItem> orderItems = convertOrderItems(order.getItems());
-        
+
         // Create order info
         DeliveryEvent.OrderInfo orderInfo = DeliveryEvent.OrderInfo.builder()
                 .orderId(order.getOrderId())
@@ -179,7 +235,7 @@ public class OrderService {
                 .isPrepaid(true)
                 .paymentMethod(order.getPaymentMethod())
                 .build();
-        
+
         // Build and return the delivery event
         return DeliveryEvent.builder()
                 .deliveryId(deliveryId)
@@ -188,10 +244,45 @@ public class OrderService {
                 .restaurantId(order.getStoreId())
                 .status(DeliveryEvent.DeliveryStatus.PENDING_ASSIGNMENT)
                 .createdAt(LocalDateTime.now())
+                .pickupLocation(pickupLocation)
                 .deliveryLocation(deliveryLocation)
                 .specialInstructions(order.getSpecialInstructions())
                 .orderInfo(orderInfo)
                 .build();
+    }
+
+    /**
+     * Format store address into a single string
+     */
+    private String formatStoreAddress(Map<String, Object> storeInfo) {
+        if (storeInfo == null) {
+            return null;
+        }
+
+        StringBuilder address = new StringBuilder();
+
+        String storeName = (String) storeInfo.get("name");
+        if (storeName != null && !storeName.isEmpty()) {
+            address.append(storeName).append(", ");
+        }
+
+        String street = (String) storeInfo.get("address");
+        if (street != null && !street.isEmpty()) {
+            address.append(street);
+        }
+
+        String city = (String) storeInfo.get("city");
+        String state = (String) storeInfo.get("state");
+        String zipCode = (String) storeInfo.get("zipCode");
+
+        if (city != null || state != null || zipCode != null) {
+            address.append(", ");
+            if (city != null) address.append(city);
+            if (state != null) address.append(", ").append(state);
+            if (zipCode != null) address.append(" ").append(zipCode);
+        }
+
+        return address.toString();
     }
     
     private List<DeliveryEvent.OrderItem> convertOrderItems(List<OrderItem> items) {
