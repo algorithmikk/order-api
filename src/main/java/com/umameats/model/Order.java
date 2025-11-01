@@ -2,6 +2,7 @@ package com.umameats.model;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
@@ -124,7 +125,7 @@ public class Order {
 
     @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.SS)
-    private List<String> declinedByDrivers;  // List of driver IDs who declined this delivery
+    private Set<String> declinedByDrivers;  // Set of driver IDs who declined this delivery
 }
 
 
