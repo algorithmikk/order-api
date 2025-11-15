@@ -60,7 +60,7 @@ public class OrderService {
             .paymentMethodId(order.getPaymentMethodId())
             .currency(order.getBillingDetails().getCurrency())
             .billingDetails(order.getBillingDetails())
-            .connectedAccountId(connectedAccountId)  // Add connected account for direct transfer
+            .connectedAccountId(null)  // TEMPORARILY DISABLED: Set to null to skip transfer for testing
             .build();
 
         try {
