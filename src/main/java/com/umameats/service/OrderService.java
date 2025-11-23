@@ -52,13 +52,18 @@ public class OrderService {
         String connectedAccountId = fetchStoreConnectedAccountId(order.getStoreId());
 
         // Create payment transaction with full payment details
+        // Default currency to CAD if billingDetails is null
+        String currency = (order.getBillingDetails() != null && order.getBillingDetails().getCurrency() != null)
+            ? order.getBillingDetails().getCurrency()
+            : "cad";
+
         TransactionRequest transactionRequest = TransactionRequest.builder()
             .orderId(order.getOrderId())
             .customerId(order.getCustomerId())
             .storeId(order.getStoreId())
             .amount(order.getTotalAmount())
             .paymentMethodId(order.getPaymentMethodId())
-            .currency(order.getBillingDetails().getCurrency())
+            .currency(currency)
             .billingDetails(order.getBillingDetails())
             .connectedAccountId(null)  // TEMPORARILY DISABLED: Set to null to skip transfer for testing
             .build();
