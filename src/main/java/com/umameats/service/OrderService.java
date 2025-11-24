@@ -73,12 +73,19 @@ public class OrderService {
         Map<String, Object> storeInfo = fetchStoreInfo(order.getStoreId());
         Double restaurantLat = null;
         Double restaurantLng = null;
+        String pickupAddress = null;
+        String storeName = null;
+        String storePhone = null;
         if (storeInfo != null) {
             restaurantLat = storeInfo.get("latitude") != null ? ((Number) storeInfo.get("latitude")).doubleValue() : null;
             restaurantLng = storeInfo.get("longitude") != null ? ((Number) storeInfo.get("longitude")).doubleValue() : null;
-            log.info("Fetched restaurant coordinates: ({}, {}) for store {}", restaurantLat, restaurantLng, order.getStoreId());
+            pickupAddress = formatStoreAddress(storeInfo);
+            storeName = (String) storeInfo.get("name");
+            storePhone = (String) storeInfo.get("phone");
+            log.info("Fetched restaurant info for store {}: name={}, phone={}, address={}, coordinates=({}, {})",
+                order.getStoreId(), storeName, storePhone, pickupAddress, restaurantLat, restaurantLng);
         } else {
-            log.warn("Failed to fetch restaurant coordinates for store {}", order.getStoreId());
+            log.warn("Failed to fetch restaurant info for store {}", order.getStoreId());
         }
 
         // Create order with coordinates
@@ -86,9 +93,12 @@ public class OrderService {
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING_PAYMENT);
 
-        // Save restaurant coordinates to Order
+        // Save restaurant info to Order
         order.setRestaurantLat(restaurantLat);
         order.setRestaurantLng(restaurantLng);
+        order.setPickupAddress(pickupAddress);
+        order.setStoreName(storeName);
+        order.setStorePhone(storePhone);
 
         Order savedOrder = orderRepository.save(order);
         log.info("Created order {} with restaurant coordinates ({}, {}) and customer coordinates ({}, {})",
