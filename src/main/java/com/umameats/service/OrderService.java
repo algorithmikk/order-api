@@ -87,7 +87,7 @@ public class OrderService {
             if ((restaurantLat == null || restaurantLng == null) && pickupAddress != null && !pickupAddress.isEmpty()) {
                 log.info("Store {} missing coordinates, geocoding address: {}", order.getStoreId(), pickupAddress);
                 try {
-                    GeocodingService.Coordinates coords = geocodingService.geocodeAddress(pickupAddress);
+                    GeocodingService.Coordinates coords = geocodingService.geocode(pickupAddress);
                     if (coords != null) {
                         restaurantLat = coords.getLatitude();
                         restaurantLng = coords.getLongitude();
