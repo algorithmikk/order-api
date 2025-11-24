@@ -69,6 +69,8 @@ public class GeocodingService {
             log.info("Geocoding address: {} with URL: {}", address, url);
 
             String response = restTemplate.getForObject(url, String.class);
+            log.info("Raw Google Maps API response: {}", response);
+
             JsonNode root = objectMapper.readTree(response);
 
             String status = root.path("status").asText();
