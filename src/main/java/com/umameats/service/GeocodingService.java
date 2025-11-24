@@ -98,14 +98,15 @@ public class GeocodingService {
     
     /**
      * Geocode address from components
-     * 
+     *
      * @param street Street address
      * @param city City
      * @param state State/Province
      * @param zipCode ZIP/Postal code
+     * @param country Country
      * @return Coordinates or null if geocoding fails
      */
-    public Coordinates geocode(String street, String city, String state, String zipCode) {
+    public Coordinates geocode(String street, String city, String state, String zipCode, String country) {
         StringBuilder addressBuilder = new StringBuilder();
 
         if (street != null && !street.trim().isEmpty()) {
@@ -123,10 +124,9 @@ public class GeocodingService {
             if (addressBuilder.length() > 0) addressBuilder.append(" ");
             addressBuilder.append(zipCode);
         }
-
-        // Add Spain as country for better geocoding accuracy
-        if (addressBuilder.length() > 0) {
-            addressBuilder.append(", Spain");
+        if (country != null && !country.trim().isEmpty()) {
+            if (addressBuilder.length() > 0) addressBuilder.append(", ");
+            addressBuilder.append(country);
         }
 
         String fullAddress = addressBuilder.toString();

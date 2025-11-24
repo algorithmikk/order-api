@@ -56,7 +56,8 @@ public class OrderService {
                     address.getStreet(),
                     address.getCity(),
                     address.getState(),
-                    address.getZipCode()
+                    address.getZipCode(),
+                    address.getCountry()
                 );
 
                 if (coords != null) {

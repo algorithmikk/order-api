@@ -22,6 +22,9 @@ public class DeliveryAddress {
     private String zipCode;
 
     @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String country;
+
+    @DynamoDBTyped(DynamoDBAttributeType.S)
     private String specialInstructions;
 
     @DynamoDBTyped(DynamoDBAttributeType.N)
