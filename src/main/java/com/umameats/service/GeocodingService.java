@@ -123,6 +123,59 @@ public class GeocodingService {
      * @return Coordinates or null if geocoding fails
      */
     public Coordinates geocode(String street, String city, String state, String zipCode, String country) {
+        // Try structured address components first (more reliable for Google Maps API)
+        try {
+            String url = UriComponentsBuilder.fromHttpUrl(GEOCODING_API_URL)
+                    .queryParam("address", street)
+                    .queryParam("components", String.format("locality:%s|administrative_area:%s|postal_code:%s|country:%s",
+                        city != null ? city : "",
+                        state != null ? state : "",
+                        zipCode != null ? zipCode : "",
+                        country != null ? country : ""))
+                    .queryParam("key", apiKey)
+                    .toUriString();
+
+            log.info("Trying structured geocoding with components: street={}, city={}, state={}, zip={}, country={}",
+                street, city, state, zipCode, country);
+            log.info("Structured geocoding URL: {}", url);
+
+            // Add custom headers
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
+            headers.set("Accept", "application/json");
+            headers.set("Accept-Language", "en-US,en;q=0.9");
+
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+            org.springframework.http.ResponseEntity<String> responseEntity = restTemplate.exchange(
+                url,
+                org.springframework.http.HttpMethod.GET,
+                entity,
+                String.class
+            );
+
+            String response = responseEntity.getBody();
+            log.info("Structured geocoding response (HTTP {}): {}", responseEntity.getStatusCode(), response);
+
+            JsonNode root = objectMapper.readTree(response);
+            String status = root.path("status").asText();
+
+            if ("OK".equals(status)) {
+                JsonNode location = root.path("results").get(0)
+                        .path("geometry").path("location");
+
+                double lat = location.path("lat").asDouble();
+                double lng = location.path("lng").asDouble();
+
+                log.info("Structured geocoding SUCCESS: ({}, {})", lat, lng);
+                return new Coordinates(lat, lng);
+            } else {
+                log.warn("Structured geocoding failed with status: {}, falling back to full address string", status);
+            }
+        } catch (Exception e) {
+            log.warn("Structured geocoding failed, falling back to full address string: {}", e.getMessage());
+        }
+
+        // Fallback to full address string
         StringBuilder addressBuilder = new StringBuilder();
 
         if (street != null && !street.trim().isEmpty()) {
@@ -152,6 +205,7 @@ public class GeocodingService {
             return null;
         }
 
+        log.info("Falling back to full address string geocoding: {}", fullAddress);
         return geocode(fullAddress);
     }
     

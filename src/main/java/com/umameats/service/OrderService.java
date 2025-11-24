@@ -50,8 +50,18 @@ public class OrderService {
         // Geocode delivery address if coordinates are missing
         if (order.getDeliveryAddress() != null) {
             DeliveryAddress address = order.getDeliveryAddress();
+            log.info("=== GEOCODING CHECK ===");
+            log.info("Address components received:");
+            log.info("  Street: '{}'", address.getStreet());
+            log.info("  City: '{}'", address.getCity());
+            log.info("  State: '{}'", address.getState());
+            log.info("  ZipCode: '{}'", address.getZipCode());
+            log.info("  Country: '{}'", address.getCountry());
+            log.info("  Current Lat: {}", address.getLatitude());
+            log.info("  Current Lng: {}", address.getLongitude());
+
             if (address.getLatitude() == null || address.getLongitude() == null) {
-                log.info("Geocoding delivery address for order");
+                log.info("Coordinates are NULL, starting geocoding...");
                 GeocodingService.Coordinates coords = geocodingService.geocode(
                     address.getStreet(),
                     address.getCity(),
@@ -63,11 +73,14 @@ public class OrderService {
                 if (coords != null) {
                     address.setLatitude(coords.getLatitude());
                     address.setLongitude(coords.getLongitude());
-                    log.info("Geocoded delivery address to ({}, {})", coords.getLatitude(), coords.getLongitude());
+                    log.info("✅ Geocoding SUCCESS: ({}, {})", coords.getLatitude(), coords.getLongitude());
                 } else {
-                    log.warn("Failed to geocode delivery address - coordinates will be null");
+                    log.warn("❌ Geocoding FAILED - coordinates will be null");
                 }
+            } else {
+                log.info("Coordinates already present, skipping geocoding");
             }
+            log.info("======================");
         }
 
         // Fetch store coordinates BEFORE creating order

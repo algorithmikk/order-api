@@ -37,6 +37,31 @@ public class OrderController {
             @RequestBody Order order,
             @RequestHeader("X-Customer-Id") String customerId
     ) {
+        log.info("=== RECEIVED ORDER REQUEST ===");
+        log.info("Customer ID: {}", customerId);
+        log.info("Store ID: {}", order.getStoreId());
+        log.info("Payment Method: {}", order.getPaymentMethod());
+        log.info("Total Amount: {}", order.getTotalAmount());
+
+        if (order.getDeliveryAddress() != null) {
+            log.info("Delivery Address Details:");
+            log.info("  - Full Name: {}", order.getDeliveryAddress().getFullName());
+            log.info("  - Phone: {}", order.getDeliveryAddress().getPhone());
+            log.info("  - Street: {}", order.getDeliveryAddress().getStreet());
+            log.info("  - City: {}", order.getDeliveryAddress().getCity());
+            log.info("  - State: {}", order.getDeliveryAddress().getState());
+            log.info("  - Zip Code: {}", order.getDeliveryAddress().getZipCode());
+            log.info("  - Country: {}", order.getDeliveryAddress().getCountry());
+            log.info("  - Special Instructions: {}", order.getDeliveryAddress().getSpecialInstructions());
+            log.info("  - Latitude (from frontend): {}", order.getDeliveryAddress().getLatitude());
+            log.info("  - Longitude (from frontend): {}", order.getDeliveryAddress().getLongitude());
+        } else {
+            log.warn("Delivery Address is NULL!");
+        }
+
+        log.info("Items count: {}", order.getItems() != null ? order.getItems().size() : 0);
+        log.info("==============================");
+
         order.setCustomerId(customerId);
         return ResponseEntity.ok(orderService.createOrder(order));
     }
