@@ -66,27 +66,28 @@ public class GeocodingService {
                     .queryParam("key", apiKey)
                     .toUriString();
             
-            log.debug("Geocoding address: {}", address);
-            
+            log.info("Geocoding address: {} with URL: {}", address, url);
+
             String response = restTemplate.getForObject(url, String.class);
             JsonNode root = objectMapper.readTree(response);
-            
+
             String status = root.path("status").asText();
-            
+            log.info("Google Maps API response status: {} for address: {}", status, address);
+
             if ("OK".equals(status)) {
                 JsonNode location = root.path("results").get(0)
                         .path("geometry").path("location");
-                
+
                 double lat = location.path("lat").asDouble();
                 double lng = location.path("lng").asDouble();
-                
+
                 log.info("Geocoded address '{}' to ({}, {})", address, lat, lng);
                 return new Coordinates(lat, lng);
             } else if ("ZERO_RESULTS".equals(status)) {
-                log.warn("No results found for address: {}", address);
+                log.warn("No results found for address: {}. Full response: {}", address, response);
                 return null;
             } else {
-                log.error("Geocoding API error: {} for address: {}", status, address);
+                log.error("Geocoding API error: {} for address: {}. Full response: {}", status, address, response);
                 return null;
             }
         } catch (Exception e) {
@@ -106,7 +107,7 @@ public class GeocodingService {
      */
     public Coordinates geocode(String street, String city, String state, String zipCode) {
         StringBuilder addressBuilder = new StringBuilder();
-        
+
         if (street != null && !street.trim().isEmpty()) {
             addressBuilder.append(street);
         }
@@ -122,14 +123,19 @@ public class GeocodingService {
             if (addressBuilder.length() > 0) addressBuilder.append(" ");
             addressBuilder.append(zipCode);
         }
-        
+
+        // Add Spain as country for better geocoding accuracy
+        if (addressBuilder.length() > 0) {
+            addressBuilder.append(", Spain");
+        }
+
         String fullAddress = addressBuilder.toString();
-        
+
         if (fullAddress.isEmpty()) {
             log.warn("Cannot geocode - all address components are empty");
             return null;
         }
-        
+
         return geocode(fullAddress);
     }
     
