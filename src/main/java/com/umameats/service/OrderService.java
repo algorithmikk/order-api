@@ -14,6 +14,7 @@ import com.umameats.model.DeliveryAddress;
 import com.umameats.model.DeliveryEvent;
 import com.umameats.model.EventRequest;
 import com.umameats.model.Order;
+import com.umameats.model.OrderCreatedEvent;
 import com.umameats.model.OrderItem;
 import com.umameats.model.OrderStatus;
 import com.umameats.model.TransactionRequest;
@@ -31,27 +32,75 @@ public class OrderService {
     private final PaymentApiClient paymentApiClient;
     private final EventApiClient eventApiClient;
     private final OrderEventProducer orderEventProducer;
+    private final GeocodingService geocodingService;
 
     public OrderService(OrderRepository orderRepository,
                         PaymentApiClient paymentApiClient,
                         EventApiClient eventApiClient,
-                        OrderEventProducer orderEventProducer) {
+                        OrderEventProducer orderEventProducer,
+                        GeocodingService geocodingService) {
         this.orderRepository = orderRepository;
         this.paymentApiClient = paymentApiClient;
         this.eventApiClient = eventApiClient;
         this.orderEventProducer = orderEventProducer;
+        this.geocodingService = geocodingService;
     }
 
     public Order createOrder(Order order) {
+        // Geocode delivery address if coordinates are missing
+        if (order.getDeliveryAddress() != null) {
+            DeliveryAddress address = order.getDeliveryAddress();
+            if (address.getLatitude() == null || address.getLongitude() == null) {
+                log.info("Geocoding delivery address for order");
+                GeocodingService.Coordinates coords = geocodingService.geocode(
+                    address.getStreet(),
+                    address.getCity(),
+                    address.getState(),
+                    address.getZipCode()
+                );
+
+                if (coords != null) {
+                    address.setLatitude(coords.getLatitude());
+                    address.setLongitude(coords.getLongitude());
+                    log.info("Geocoded delivery address to ({}, {})", coords.getLatitude(), coords.getLongitude());
+                } else {
+                    log.warn("Failed to geocode delivery address - coordinates will be null");
+                }
+            }
+        }
+
         // Create order first
         order.setOrderId(UUID.randomUUID().toString());
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING_PAYMENT);
         Order savedOrder = orderRepository.save(order);
 
+        // Fetch store coordinates for the order created event
+        Map<String, Object> storeInfo = fetchStoreInfo(savedOrder.getStoreId());
+        Double restaurantLat = null;
+        Double restaurantLng = null;
+        if (storeInfo != null) {
+            restaurantLat = storeInfo.get("latitude") != null ? ((Number) storeInfo.get("latitude")).doubleValue() : null;
+            restaurantLng = storeInfo.get("longitude") != null ? ((Number) storeInfo.get("longitude")).doubleValue() : null;
+        }
+
+        // Build OrderCreatedEvent with coordinates
+        OrderCreatedEvent orderCreatedEvent = OrderCreatedEvent.builder()
+                .orderId(savedOrder.getOrderId())
+                .restaurantId(savedOrder.getStoreId())
+                .restaurantLat(restaurantLat)
+                .restaurantLng(restaurantLng)
+                .customerId(savedOrder.getCustomerId())
+                .customerLat(savedOrder.getDeliveryAddress() != null ? savedOrder.getDeliveryAddress().getLatitude() : null)
+                .customerLng(savedOrder.getDeliveryAddress() != null ? savedOrder.getDeliveryAddress().getLongitude() : null)
+                .createdAt(System.currentTimeMillis())
+                .build();
+
         // Publish order created event to Kafka
-        orderEventProducer.publishOrderCreated(savedOrder.getOrderId(), savedOrder);
-        log.info("Published ORDER_CREATED event for orderId: {}", savedOrder.getOrderId());
+        orderEventProducer.publishOrderCreated(savedOrder.getOrderId(), orderCreatedEvent);
+        log.info("Published ORDER_CREATED event for orderId: {} with coordinates (restaurant: {}, {}, customer: {}, {})",
+                savedOrder.getOrderId(), restaurantLat, restaurantLng,
+                orderCreatedEvent.getCustomerLat(), orderCreatedEvent.getCustomerLng());
 
         // Fetch store's connected account ID for direct transfer
         String connectedAccountId = fetchStoreConnectedAccountId(savedOrder.getStoreId());
@@ -221,13 +270,17 @@ public class OrderService {
         DeliveryEvent.Location pickupLocation = null;
         Map<String, Object> storeInfo = fetchStoreInfo(order.getStoreId());
         if (storeInfo != null) {
+            // Extract coordinates from store info (may be null if not geocoded yet)
+            Double storeLat = storeInfo.get("latitude") != null ? ((Number) storeInfo.get("latitude")).doubleValue() : 0.00;
+            Double storeLng = storeInfo.get("longitude") != null ? ((Number) storeInfo.get("longitude")).doubleValue() : 0.00;
+
             pickupLocation = DeliveryEvent.Location.builder()
                     .address((String) storeInfo.get("address"))
                     .city((String) storeInfo.get("city"))
                     .state((String) storeInfo.get("state"))
                     .postalCode((String) storeInfo.get("zipCode"))
-                    .latitude(0.00)
-                    .longitude(0.00)
+                    .latitude(storeLat)
+                    .longitude(storeLng)
                     .formattedAddress(formatStoreAddress(storeInfo))
                     .build();
         }
@@ -315,14 +368,14 @@ public class OrderService {
         if (address == null) {
             return null;
         }
-        
+
         return DeliveryEvent.Location.builder()
                 .address(address.getStreet())
                 .city(address.getCity())
                 .state(address.getState())
                 .postalCode(address.getZipCode())
-                .latitude(0.00)
-                .longitude(0.00)
+                .latitude(address.getLatitude() != null ? address.getLatitude() : 0.00)
+                .longitude(address.getLongitude() != null ? address.getLongitude() : 0.00)
                 .build();
     }
 

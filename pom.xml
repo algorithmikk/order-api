@@ -107,6 +107,12 @@
     <artifactId>spring-kafka</artifactId>
 </dependency>
 
+<!-- Spring Cache for geocoding cache -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-cache</artifactId>
+</dependency>
+
 
 	</dependencies>
 
