@@ -82,6 +82,24 @@ public class OrderService {
             pickupAddress = formatStoreAddress(storeInfo);
             storeName = (String) storeInfo.get("name");
             storePhone = (String) storeInfo.get("phone");
+
+            // If store doesn't have coordinates, geocode the address
+            if ((restaurantLat == null || restaurantLng == null) && pickupAddress != null && !pickupAddress.isEmpty()) {
+                log.info("Store {} missing coordinates, geocoding address: {}", order.getStoreId(), pickupAddress);
+                try {
+                    GeocodingService.Coordinates coords = geocodingService.geocodeAddress(pickupAddress);
+                    if (coords != null) {
+                        restaurantLat = coords.getLatitude();
+                        restaurantLng = coords.getLongitude();
+                        log.info("Geocoded store address to ({}, {})", restaurantLat, restaurantLng);
+                    } else {
+                        log.warn("Failed to geocode store address: {}", pickupAddress);
+                    }
+                } catch (Exception e) {
+                    log.error("Error geocoding store address: {}", pickupAddress, e);
+                }
+            }
+
             log.info("Fetched restaurant info for store {}: name={}, phone={}, address={}, coordinates=({}, {})",
                 order.getStoreId(), storeName, storePhone, pickupAddress, restaurantLat, restaurantLng);
         } else {
