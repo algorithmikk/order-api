@@ -43,57 +43,45 @@ public class OrderService {
     }
 
     public Order createOrder(Order order) {
-        // Generate order ID and set initial data
+        // Create order first
         order.setOrderId(UUID.randomUUID().toString());
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING_PAYMENT);
+        Order savedOrder = orderRepository.save(order);
+
+        // Publish order created event to Kafka
+        orderEventProducer.publishOrderCreated(savedOrder.getOrderId(), savedOrder);
+        log.info("Published ORDER_CREATED event for orderId: {}", savedOrder.getOrderId());
 
         // Fetch store's connected account ID for direct transfer
-        String connectedAccountId = fetchStoreConnectedAccountId(order.getStoreId());
+        String connectedAccountId = fetchStoreConnectedAccountId(savedOrder.getStoreId());
 
         // Create payment transaction with full payment details
-        // Default currency to CAD if billingDetails is null
-        String currency = (order.getBillingDetails() != null && order.getBillingDetails().getCurrency() != null)
-            ? order.getBillingDetails().getCurrency()
-            : "cad";
-
         TransactionRequest transactionRequest = TransactionRequest.builder()
-            .orderId(order.getOrderId())
-            .customerId(order.getCustomerId())
-            .storeId(order.getStoreId())
-            .amount(order.getTotalAmount())
-            .paymentMethodId(order.getPaymentMethodId())
-            .currency(currency)
-            .billingDetails(order.getBillingDetails())
-            .connectedAccountId(null)  // TEMPORARILY DISABLED: Set to null to skip transfer for testing
+            .orderId(savedOrder.getOrderId())
+            .customerId(savedOrder.getCustomerId())
+            .storeId(savedOrder.getStoreId())
+            .amount(savedOrder.getTotalAmount())
+            .paymentMethodId(savedOrder.getPaymentMethodId())
+            .currency(savedOrder.getBillingDetails().getCurrency())
+            .billingDetails(savedOrder.getBillingDetails())
+            .connectedAccountId(connectedAccountId)  // Add connected account for direct transfer
             .build();
 
-        try {
-            // Call payment API SYNCHRONOUSLY - block until payment completes
-            TransactionResponse transactionResponse = paymentApiClient
-                .createTransaction(transactionRequest, order.getCustomerId())
-                .block();  // Wait for payment to complete
+        // Call payment API
+        paymentApiClient.createTransaction(transactionRequest, order.getCustomerId())
+            .subscribe(
+                transactionResponse -> {
+                    // Payment success will be handled by PaymentEventConsumer
+                    log.info("Payment transaction initiated for order: {}", savedOrder.getOrderId());
+                },
+                error -> {
+                    // Payment failure will be handled by PaymentEventConsumer
+                    log.error("Payment transaction failed for order: {}", savedOrder.getOrderId(), error);
+                }
+            );
 
-            if (transactionResponse == null) {
-                throw new RuntimeException("Payment processing failed - no response received");
-            }
-
-            log.info("Payment transaction completed successfully for order: {}", order.getOrderId());
-
-            // Payment succeeded - now save the order
-            Order savedOrder = orderRepository.save(order);
-
-            // Publish order created event to Kafka
-            orderEventProducer.publishOrderCreated(savedOrder.getOrderId(), savedOrder);
-            log.info("Published ORDER_CREATED event for orderId: {}", savedOrder.getOrderId());
-
-            return savedOrder;
-
-        } catch (Exception e) {
-            // Payment failed - DO NOT save the order
-            log.error("Payment failed for order: {}, error: {}", order.getOrderId(), e.getMessage());
-            throw new RuntimeException("Payment failed: " + e.getMessage(), e);
-        }
+        return savedOrder;
     }
 
     /**
