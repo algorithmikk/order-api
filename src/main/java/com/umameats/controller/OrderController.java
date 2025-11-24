@@ -10,6 +10,9 @@ import com.umameats.model.Order;
 import com.umameats.model.OrderStatus;
 import com.umameats.service.OrderService;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/orders")
 @CrossOrigin(
