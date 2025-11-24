@@ -65,11 +65,25 @@ public class GeocodingService {
                     .queryParam("address", address)
                     .queryParam("key", apiKey)
                     .toUriString();
-            
+
             log.info("Geocoding address: {} with URL: {}", address, url);
 
-            String response = restTemplate.getForObject(url, String.class);
-            log.info("Raw Google Maps API response: {}", response);
+            // Add custom headers to mimic browser request
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
+            headers.set("Accept", "application/json");
+            headers.set("Accept-Language", "en-US,en;q=0.9");
+
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(headers);
+            org.springframework.http.ResponseEntity<String> responseEntity = restTemplate.exchange(
+                url,
+                org.springframework.http.HttpMethod.GET,
+                entity,
+                String.class
+            );
+
+            String response = responseEntity.getBody();
+            log.info("Raw Google Maps API response (HTTP {}): {}", responseEntity.getStatusCode(), response);
 
             JsonNode root = objectMapper.readTree(response);
 
