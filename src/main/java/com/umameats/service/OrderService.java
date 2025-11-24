@@ -69,20 +69,35 @@ public class OrderService {
             }
         }
 
-        // Create order first
-        order.setOrderId(UUID.randomUUID().toString());
-        order.setOrderDate(LocalDateTime.now());
-        order.setStatus(OrderStatus.PENDING_PAYMENT);
-        Order savedOrder = orderRepository.save(order);
-
-        // Fetch store coordinates for the order created event
-        Map<String, Object> storeInfo = fetchStoreInfo(savedOrder.getStoreId());
+        // Fetch store coordinates BEFORE creating order
+        Map<String, Object> storeInfo = fetchStoreInfo(order.getStoreId());
         Double restaurantLat = null;
         Double restaurantLng = null;
         if (storeInfo != null) {
             restaurantLat = storeInfo.get("latitude") != null ? ((Number) storeInfo.get("latitude")).doubleValue() : null;
             restaurantLng = storeInfo.get("longitude") != null ? ((Number) storeInfo.get("longitude")).doubleValue() : null;
+            log.info("Fetched restaurant coordinates: ({}, {}) for store {}", restaurantLat, restaurantLng, order.getStoreId());
+        } else {
+            log.warn("Failed to fetch restaurant coordinates for store {}", order.getStoreId());
         }
+
+        // Create order with coordinates
+        order.setOrderId(UUID.randomUUID().toString());
+        order.setOrderDate(LocalDateTime.now());
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+
+        // Save restaurant coordinates to Order
+        order.setRestaurantLat(restaurantLat);
+        order.setRestaurantLng(restaurantLng);
+
+        Order savedOrder = orderRepository.save(order);
+        log.info("Created order {} with restaurant coordinates ({}, {}) and customer coordinates ({}, {})",
+            savedOrder.getOrderId(),
+            restaurantLat,
+            restaurantLng,
+            savedOrder.getDeliveryAddress() != null ? savedOrder.getDeliveryAddress().getLatitude() : null,
+            savedOrder.getDeliveryAddress() != null ? savedOrder.getDeliveryAddress().getLongitude() : null
+        );
 
         // Build OrderCreatedEvent with coordinates
         OrderCreatedEvent orderCreatedEvent = OrderCreatedEvent.builder()

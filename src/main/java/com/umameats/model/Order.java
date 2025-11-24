@@ -90,6 +90,15 @@ public class Order {
     @DynamoDBTyped(DynamoDBAttributeType.S)
     private String pickupAddress;
 
+    // Restaurant/Store coordinates for delivery metrics
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Double restaurantLat;
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Double restaurantLng;
+
     @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.N)
     private Long deliveryFee;  // Delivery fee in cents
