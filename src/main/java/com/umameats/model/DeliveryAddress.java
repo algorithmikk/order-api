@@ -10,6 +10,12 @@ import lombok.Data;
 @DynamoDBDocument
 public class DeliveryAddress {
      @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String fullName;
+
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String phone;
+
+    @DynamoDBTyped(DynamoDBAttributeType.S)
     private String street;
 
     @DynamoDBTyped(DynamoDBAttributeType.S)
