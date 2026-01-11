@@ -64,7 +64,19 @@ public class Order {
 
     @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.N)
-    private Long totalAmount;
+    private Long totalAmount;  // Total charged to customer (subtotal + deliveryFee + serviceFee + tip)
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long subtotal;  // Sum of item prices in cents
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long serviceFee;  // Platform service fee in cents (5% of subtotal)
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long platformFee;  // Platform commission in cents (15% of subtotal, taken from restaurant)
 
     @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.S)

@@ -33,17 +33,20 @@ public class OrderService {
     private final EventApiClient eventApiClient;
     private final OrderEventProducer orderEventProducer;
     private final GeocodingService geocodingService;
+    private final PricingService pricingService;
 
     public OrderService(OrderRepository orderRepository,
                         PaymentApiClient paymentApiClient,
                         EventApiClient eventApiClient,
                         OrderEventProducer orderEventProducer,
-                        GeocodingService geocodingService) {
+                        GeocodingService geocodingService,
+                        PricingService pricingService) {
         this.orderRepository = orderRepository;
         this.paymentApiClient = paymentApiClient;
         this.eventApiClient = eventApiClient;
         this.orderEventProducer = orderEventProducer;
         this.geocodingService = geocodingService;
+        this.pricingService = pricingService;
     }
 
     public Order createOrder(Order order) {
@@ -131,6 +134,57 @@ public class OrderService {
         order.setPickupAddress(pickupAddress);
         order.setStoreName(storeName);
         order.setStorePhone(storePhone);
+
+        // === PRICING CALCULATION ===
+        // Calculate subtotal from items (server-side validation)
+        long subtotal = pricingService.calculateSubtotal(order.getItems());
+        order.setSubtotal(subtotal);
+
+        // Calculate delivery fee (use frontend value if provided and valid, otherwise calculate)
+        Long frontendDeliveryFee = order.getDeliveryFee();
+        long deliveryFee;
+        if (frontendDeliveryFee != null && frontendDeliveryFee > 0) {
+            // Validate frontend delivery fee is within acceptable range
+            long calculatedFee = pricingService.calculateDeliveryFeeFromSubtotal(subtotal);
+            // Allow up to 20% variance from calculated fee (for distance-based adjustments)
+            if (frontendDeliveryFee >= calculatedFee * 0.8 && frontendDeliveryFee <= calculatedFee * 1.5) {
+                deliveryFee = frontendDeliveryFee;
+                log.info("Using frontend delivery fee: {} cents (calculated: {} cents)", deliveryFee, calculatedFee);
+            } else {
+                deliveryFee = calculatedFee;
+                log.warn("Frontend delivery fee {} cents out of range, using calculated: {} cents",
+                        frontendDeliveryFee, calculatedFee);
+            }
+        } else {
+            deliveryFee = pricingService.calculateDeliveryFeeFromSubtotal(subtotal);
+            log.info("Calculated delivery fee: {} cents", deliveryFee);
+        }
+        order.setDeliveryFee(deliveryFee);
+
+        // Calculate service fee
+        long serviceFee = pricingService.calculateServiceFee(subtotal);
+        order.setServiceFee(serviceFee);
+
+        // Validate tip (use frontend value, validate it)
+        long tip = pricingService.validateTip(order.getTip());
+        order.setTip(tip);
+
+        // Calculate platform fee (for accounting)
+        long platformFee = pricingService.calculatePlatformFee(subtotal);
+        order.setPlatformFee(platformFee);
+
+        // Calculate total amount (server-side to prevent tampering)
+        long totalAmount = subtotal + deliveryFee + serviceFee + tip;
+        order.setTotalAmount(totalAmount);
+
+        log.info("=== PRICING CALCULATED ===");
+        log.info("  Subtotal: {} cents", subtotal);
+        log.info("  Delivery Fee: {} cents", deliveryFee);
+        log.info("  Service Fee: {} cents", serviceFee);
+        log.info("  Tip: {} cents", tip);
+        log.info("  Platform Fee: {} cents (from restaurant)", platformFee);
+        log.info("  TOTAL: {} cents", totalAmount);
+        log.info("==========================");
 
         Order savedOrder = orderRepository.save(order);
         log.info("Created order {} with restaurant coordinates ({}, {}) and customer coordinates ({}, {})",
