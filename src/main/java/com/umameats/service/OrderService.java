@@ -216,7 +216,7 @@ public class OrderService {
         // Fetch store's connected account ID for direct transfer
         String connectedAccountId = fetchStoreConnectedAccountId(savedOrder.getStoreId());
 
-        // Create payment transaction with full payment details
+        // Create payment transaction with full payment details including split info
         TransactionRequest transactionRequest = TransactionRequest.builder()
             .orderId(savedOrder.getOrderId())
             .customerId(savedOrder.getCustomerId())
@@ -226,7 +226,16 @@ public class OrderService {
             .currency(savedOrder.getBillingDetails().getCurrency())
             .billingDetails(savedOrder.getBillingDetails())
             .connectedAccountId(connectedAccountId)  // Add connected account for direct transfer
+            // Payment split fields - driver portion stays on platform for later transfer
+            .subtotal(savedOrder.getSubtotal())
+            .deliveryFee(savedOrder.getDeliveryFee())
+            .tipAmount(savedOrder.getTip())
+            .serviceFee(savedOrder.getServiceFee())
             .build();
+
+        log.info("Payment split for order {}: subtotal={}, deliveryFee={}, tip={}, serviceFee={}, total={}",
+            savedOrder.getOrderId(), savedOrder.getSubtotal(), savedOrder.getDeliveryFee(),
+            savedOrder.getTip(), savedOrder.getServiceFee(), savedOrder.getTotalAmount());
 
         // Call payment API
         paymentApiClient.createTransaction(transactionRequest, order.getCustomerId())
