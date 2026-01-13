@@ -30,6 +30,9 @@ public class PaymentEventConsumer {
     @Autowired
     private OrderEventProducer orderEventProducer;
 
+    @Autowired
+    private com.umameats.service.RestaurantNotificationService restaurantNotificationService;
+
     @KafkaListener(topics = "umameats.payment.events", groupId = "order-api-group")
     public void consumePaymentEvent(
             @Payload String eventJson,
@@ -94,7 +97,10 @@ public class PaymentEventConsumer {
                 "timestamp", System.currentTimeMillis()
             );
             orderEventProducer.publishCustomerNotification(customerId, orderId, customerNotification);
-            
+
+            // Send email notification to restaurant
+            restaurantNotificationService.sendNewOrderNotification(order);
+
         } catch (Exception e) {
             log.error("Error handling payment success: orderId={}", orderId, e);
         }
