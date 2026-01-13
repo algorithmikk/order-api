@@ -34,19 +34,22 @@ public class OrderService {
     private final OrderEventProducer orderEventProducer;
     private final GeocodingService geocodingService;
     private final PricingService pricingService;
+    private final TaxService taxService;
 
     public OrderService(OrderRepository orderRepository,
                         PaymentApiClient paymentApiClient,
                         EventApiClient eventApiClient,
                         OrderEventProducer orderEventProducer,
                         GeocodingService geocodingService,
-                        PricingService pricingService) {
+                        PricingService pricingService,
+                        TaxService taxService) {
         this.orderRepository = orderRepository;
         this.paymentApiClient = paymentApiClient;
         this.eventApiClient = eventApiClient;
         this.orderEventProducer = orderEventProducer;
         this.geocodingService = geocodingService;
         this.pricingService = pricingService;
+        this.taxService = taxService;
     }
 
     public Order createOrder(Order order) {
@@ -173,8 +176,20 @@ public class OrderService {
         long platformFee = pricingService.calculatePlatformFee(subtotal);
         order.setPlatformFee(platformFee);
 
+        // Calculate tax based on delivery address
+        String country = null;
+        String province = null;
+        if (order.getDeliveryAddress() != null) {
+            country = order.getDeliveryAddress().getCountry();
+            province = order.getDeliveryAddress().getState();
+        }
+        TaxService.TaxResult taxResult = taxService.calculateTax(subtotal, deliveryFee, serviceFee, country, province);
+        order.setTaxAmount(taxResult.getTotalTax());
+        order.setTaxRate(taxResult.getTaxRate());
+        order.setTaxBreakdown(taxResult.toBreakdownJson());
+
         // Calculate total amount (server-side to prevent tampering)
-        long totalAmount = subtotal + deliveryFee + serviceFee + tip;
+        long totalAmount = subtotal + deliveryFee + serviceFee + tip + taxResult.getTotalTax();
         order.setTotalAmount(totalAmount);
 
         log.info("=== PRICING CALCULATED ===");
@@ -182,6 +197,7 @@ public class OrderService {
         log.info("  Delivery Fee: {} cents", deliveryFee);
         log.info("  Service Fee: {} cents", serviceFee);
         log.info("  Tip: {} cents", tip);
+        log.info("  Tax: {} cents ({})", taxResult.getTotalTax(), taxResult.getBreakdown());
         log.info("  Platform Fee: {} cents (from restaurant)", platformFee);
         log.info("  TOTAL: {} cents", totalAmount);
         log.info("==========================");

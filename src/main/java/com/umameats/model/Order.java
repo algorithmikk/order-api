@@ -79,6 +79,18 @@ public class Order {
     private Long platformFee;  // Platform commission in cents (15% of subtotal, taken from restaurant)
 
     @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Long taxAmount;  // Total tax in cents (GST+QST for Canada, VAT for Belgium/UAE)
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.N)
+    private Double taxRate;  // Combined tax rate as decimal (e.g., 0.14975 for Quebec)
+
+    @DynamoDBAttribute
+    @DynamoDBTyped(DynamoDBAttributeType.S)
+    private String taxBreakdown;  // JSON string with tax breakdown (e.g., {"GST": 500, "QST": 997})
+
+    @DynamoDBAttribute
     @DynamoDBTyped(DynamoDBAttributeType.S)
     private String specialInstructions;
 
