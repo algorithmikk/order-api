@@ -113,6 +113,24 @@
     <artifactId>spring-boot-starter-cache</artifactId>
 </dependency>
 
+<!-- Twilio SDK for WhatsApp notifications -->
+<dependency>
+    <groupId>com.twilio.sdk</groupId>
+    <artifactId>twilio</artifactId>
+    <version>10.6.4</version>
+</dependency>
+
+<!-- AWS Secrets Manager for Twilio credentials -->
+<dependency>
+    <groupId>software.amazon.awssdk</groupId>
+    <artifactId>secretsmanager</artifactId>
+    <version>2.20.52</version>
+</dependency>
+<dependency>
+    <groupId>software.amazon.awssdk</groupId>
+    <artifactId>auth</artifactId>
+    <version>2.20.52</version>
+</dependency>
 
 	</dependencies>
 

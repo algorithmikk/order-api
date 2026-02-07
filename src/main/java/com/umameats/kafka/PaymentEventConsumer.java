@@ -33,6 +33,9 @@ public class PaymentEventConsumer {
     @Autowired
     private com.umameats.service.RestaurantNotificationService restaurantNotificationService;
 
+    @Autowired
+    private com.umameats.service.WhatsAppNotificationService whatsAppNotificationService;
+
     @KafkaListener(topics = "umameats.payment.events", groupId = "order-api-group")
     public void consumePaymentEvent(
             @Payload String eventJson,
@@ -100,6 +103,9 @@ public class PaymentEventConsumer {
 
             // Send email notification to restaurant
             restaurantNotificationService.sendNewOrderNotification(order);
+
+            // Send WhatsApp notification to restaurant
+            whatsAppNotificationService.sendNewOrderWhatsApp(order);
 
         } catch (Exception e) {
             log.error("Error handling payment success: orderId={}", orderId, e);
