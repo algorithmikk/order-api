@@ -27,5 +27,6 @@ public class OrderCreatedEvent {
     private Double customerLat;
     private Double customerLng;
     private Long createdAt;
+    private String deliveryPreference;
 }
 

@@ -221,6 +221,7 @@ public class OrderService {
                 .customerLat(savedOrder.getDeliveryAddress() != null ? savedOrder.getDeliveryAddress().getLatitude() : null)
                 .customerLng(savedOrder.getDeliveryAddress() != null ? savedOrder.getDeliveryAddress().getLongitude() : null)
                 .createdAt(System.currentTimeMillis())
+                .deliveryPreference(storeInfo != null ? (String) storeInfo.get("deliveryPreference") : null)
                 .build();
 
         // Publish order created event to Kafka
