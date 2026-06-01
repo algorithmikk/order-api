@@ -230,6 +230,14 @@ public class OrderService {
                 savedOrder.getOrderId(), restaurantLat, restaurantLng,
                 orderCreatedEvent.getCustomerLat(), orderCreatedEvent.getCustomerLng());
 
+        // Checkout Session flow: the Stripe Checkout Session is the sole charge, so skip the
+        // auto PaymentIntent here. The order stays PENDING_PAYMENT until the session is paid
+        // (confirmed via the verify endpoint / checkout.session.completed webhook -> PAYMENT_SUCCESS).
+        if ("pending_checkout".equals(savedOrder.getPaymentMethodId())) {
+            log.info("Order {} created as PENDING_PAYMENT; payment handled via Stripe Checkout Session", savedOrder.getOrderId());
+            return savedOrder;
+        }
+
         // Fetch store's connected account ID for direct transfer
         String connectedAccountId = fetchStoreConnectedAccountId(savedOrder.getStoreId());
 
