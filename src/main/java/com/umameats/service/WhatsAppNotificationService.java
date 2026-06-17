@@ -26,8 +26,9 @@ public class WhatsAppNotificationService {
     @Value("${store.api.url:https://api.umameats.com/api/v1/stores}")
     private String storeApiUrl;
 
-    // Twilio Content Template SID for new order notification
-    private static final String CONTENT_TEMPLATE_SID = "***REDACTED_TWILIO_SID***";
+    // Twilio Content Template SID for new order notification (injected via env var)
+    @Value("${twilio.content-template-sid:}")
+    private String contentTemplateSid;
 
     // Order dashboard URL base
     private static final String ORDER_DASHBOARD_URL = "https://www.umameats.com/dashboard";
@@ -49,12 +50,13 @@ public class WhatsAppNotificationService {
             authToken = secretsManagerService.getSecretValue("prod/twilio", "AUTH_TOKEN");
             whatsappFrom = secretsManagerService.getSecretValue("prod/twilio", "WHATSAPP_FROM");
 
-            if (accountSid != null && authToken != null && whatsappFrom != null) {
+            if (accountSid != null && authToken != null && whatsappFrom != null
+                    && contentTemplateSid != null && !contentTemplateSid.isBlank()) {
                 Twilio.init(accountSid, authToken);
                 initialized = true;
                 log.info("WhatsApp notification service initialized successfully. From: {}", whatsappFrom);
             } else {
-                log.warn("WhatsApp notification service not initialized - missing Twilio credentials in prod/twilio");
+                log.warn("WhatsApp notification service not initialized - missing Twilio credentials or content template SID");
             }
         } catch (Exception e) {
             log.warn("WhatsApp notification service not initialized: {}", e.getMessage());
@@ -101,7 +103,7 @@ public class WhatsAppNotificationService {
                         new PhoneNumber("whatsapp:" + whatsappFrom),  // From
                         ""  // Body is ignored when using contentSid
                 )
-                .setContentSid(CONTENT_TEMPLATE_SID)
+                .setContentSid(contentTemplateSid)
                 .setContentVariables("{\"1\":\"" + orderLink + "\"}")
                 .create();
 

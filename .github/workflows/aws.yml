@@ -56,6 +56,15 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+    - name: Substitute environment placeholders in task definition
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}
+        TWILIO_CONTENT_TEMPLATE_SID: ${{ secrets.TWILIO_CONTENT_TEMPLATE_SID }}
+      run: |
+        envsubst < ${{ env.ECS_TASK_DEFINITION }} > .aws/task-definition.rendered.json
+        mv .aws/task-definition.rendered.json ${{ env.ECS_TASK_DEFINITION }}
+
     - name: Fill in the new image ID in the Amazon ECS task definition
       id: task-def
       uses: aws-actions/amazon-ecs-render-task-definition@v1
