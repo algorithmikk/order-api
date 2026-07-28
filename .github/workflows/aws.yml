@@ -123,4 +123,4 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y "./hurl_${VERSION}_amd64.deb"
         hurl --version
-        hurl --test --variable "BASE_URL=https://api.umameats.com" src/test/api-smoke/*.hurl
+        hurl --test --variable "BASE_URL=https://api.umameats.com" src/test/smoke/e2e/*.hurl
