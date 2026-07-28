@@ -58,12 +58,19 @@ jobs:
     - name: Pre-deploy actuator health
       env:
         IMAGE: ${{ steps.build-image.outputs.image }}
+        AWS_REGION: ${{ env.AWS_REGION }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       run: |
         set -euo pipefail
-        docker run -d --name predeploy-health -p 8080:8080 "$IMAGE"
+        docker run -d --name predeploy-health -p 8080:8080 \
+          -e AWS_REGION \
+          -e AWS_ACCESS_KEY_ID \
+          -e AWS_SECRET_ACCESS_KEY \
+          "$IMAGE"
         cleanup() { docker rm -f predeploy-health >/dev/null 2>&1 || true; }
         trap cleanup EXIT
-        for i in $(seq 1 30); do
+        for i in $(seq 1 45); do
           if body=$(curl -sf --max-time 3 http://127.0.0.1:8080/actuator/health); then
             if echo "$body" | grep -q UP; then
               echo "OK: $body"
@@ -74,7 +81,7 @@ jobs:
         done
         echo "=== docker logs ==="
         docker logs predeploy-health || true
-        echo "error: actuator health did not become UP within 60s" >&2
+        echo "error: actuator health did not become UP within 90s" >&2
         exit 1
 
     - name: Push image to Amazon ECR
