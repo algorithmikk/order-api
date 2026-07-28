@@ -144,9 +144,14 @@ public class OrderService {
         order.setSubtotal(subtotal);
 
         // Calculate delivery fee (use frontend value if provided and valid, otherwise calculate)
+        // Founding members (Stripe subscription) get $0 delivery — verified server-side.
+        boolean foundingPerk = paymentApiClient.hasFoundingDeliveryPerk(order.getCustomerId());
         Long frontendDeliveryFee = order.getDeliveryFee();
         long deliveryFee;
-        if (frontendDeliveryFee != null && frontendDeliveryFee > 0) {
+        if (foundingPerk) {
+            deliveryFee = 0L;
+            log.info("Founding member perk applied — delivery fee $0 for customer {}", order.getCustomerId());
+        } else if (frontendDeliveryFee != null && frontendDeliveryFee > 0) {
             // Validate frontend delivery fee is within acceptable range
             long calculatedFee = pricingService.calculateDeliveryFeeFromSubtotal(subtotal);
             // Allow up to 20% variance from calculated fee (for distance-based adjustments)
