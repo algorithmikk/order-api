@@ -113,3 +113,14 @@ jobs:
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
+
+    - name: Post-deploy ALB smoke
+      run: |
+        set -euo pipefail
+        VERSION=8.0.1
+        curl --location --remote-name \
+          "https://github.com/Orange-OpenSource/hurl/releases/download/${VERSION}/hurl_${VERSION}_amd64.deb"
+        sudo apt-get update
+        sudo apt-get install -y "./hurl_${VERSION}_amd64.deb"
+        hurl --version
+        hurl --test --variable "BASE_URL=https://api.umameats.com" scripts/smoke.hurl
