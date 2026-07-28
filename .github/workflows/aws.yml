@@ -46,15 +46,41 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build, tag, and push image to Amazon ECR
+    - name: Build and tag image
       id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    - name: Pre-deploy actuator health
+      env:
+        IMAGE: ${{ steps.build-image.outputs.image }}
+      run: |
+        set -euo pipefail
+        docker run -d --name predeploy-health -p 8080:8080 "$IMAGE"
+        cleanup() { docker rm -f predeploy-health >/dev/null 2>&1 || true; }
+        trap cleanup EXIT
+        for i in $(seq 1 30); do
+          if body=$(curl -sf --max-time 3 http://127.0.0.1:8080/actuator/health); then
+            if echo "$body" | grep -q UP; then
+              echo "OK: $body"
+              exit 0
+            fi
+          fi
+          sleep 2
+        done
+        echo "=== docker logs ==="
+        docker logs predeploy-health || true
+        echo "error: actuator health did not become UP within 60s" >&2
+        exit 1
+
+    - name: Push image to Amazon ECR
+      env:
+        IMAGE: ${{ steps.build-image.outputs.image }}
+      run: docker push "$IMAGE"
 
     - name: Substitute environment placeholders in task definition
       env:
