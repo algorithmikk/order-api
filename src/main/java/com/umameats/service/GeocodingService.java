@@ -61,7 +61,7 @@ public class GeocodingService {
         }
         
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(GEOCODING_API_URL)
+            String url = UriComponentsBuilder.fromUriString(GEOCODING_API_URL)
                     .queryParam("address", address)
                     .queryParam("key", apiKey)
                     .toUriString();
@@ -125,7 +125,7 @@ public class GeocodingService {
     public Coordinates geocode(String street, String city, String state, String zipCode, String country) {
         // Try structured address components first (more reliable for Google Maps API)
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(GEOCODING_API_URL)
+            String url = UriComponentsBuilder.fromUriString(GEOCODING_API_URL)
                     .queryParam("address", street)
                     .queryParam("components", String.format("locality:%s|administrative_area:%s|postal_code:%s|country:%s",
                         city != null ? city : "",

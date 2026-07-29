@@ -1,5 +1,5 @@
 # Build stage
-FROM eclipse-temurin:25-jdk AS builder
+FROM eclipse-temurin:26-jdk AS builder
 WORKDIR /app
 
 ARG GITHUB_TOKEN=
@@ -17,7 +17,7 @@ COPY . .
 RUN ./mvnw clean package -DskipTests
 
 # Run stage
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:26-jre
 WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080

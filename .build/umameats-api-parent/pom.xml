@@ -7,19 +7,19 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.16</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
     <groupId>com.umameats</groupId>
     <artifactId>umameats-api-parent</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
     <packaging>pom</packaging>
     <name>UmaMeats API Parent</name>
     <description>Shared parent POM for UmaMeats Spring Boot APIs</description>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>26</java.version>
         <maven.compiler.proc>full</maven.compiler.proc>
         <aws.java.sdk.version>2.49.4</aws.java.sdk.version>
     </properties>

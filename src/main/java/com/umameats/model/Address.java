@@ -1,28 +1,13 @@
 package com.umameats.model;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperFieldModel.DynamoDBAttributeType;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTyped;
-
 import lombok.Data;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 
 @Data
-@DynamoDBDocument  // Add this annotation
- public class Address {
-    @DynamoDBAttribute
-    @DynamoDBTyped(DynamoDBAttributeType.S)
+@DynamoDbBean
+public class Address {
     private String line1;
-
-    @DynamoDBAttribute
-    @DynamoDBTyped(DynamoDBAttributeType.S)
     private String city;
-
-    @DynamoDBAttribute
-    @DynamoDBTyped(DynamoDBAttributeType.S)
     private String state;
-
-    @DynamoDBAttribute
-    @DynamoDBTyped(DynamoDBAttributeType.S)
     private String postalCode;
 }

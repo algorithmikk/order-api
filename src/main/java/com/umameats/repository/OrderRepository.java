@@ -1,58 +1,63 @@
 package com.umameats.repository;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.umameats.model.Order;
+
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Expression;
+import software.amazon.awssdk.enhanced.dynamodb.Key;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 @Repository
 public class OrderRepository {
-    private final DynamoDBMapper dynamoDBMapper;
+    private static final String TABLE_NAME = "umameats-orders";
 
-    public OrderRepository(DynamoDBMapper dynamoDBMapper) {
-        this.dynamoDBMapper = dynamoDBMapper;
+    private final DynamoDbEnhancedClient enhancedClient;
+
+    public OrderRepository(DynamoDbEnhancedClient enhancedClient) {
+        this.enhancedClient = enhancedClient;
+    }
+
+    private DynamoDbTable<Order> getTable() {
+        return enhancedClient.table(TABLE_NAME, TableSchema.fromBean(Order.class));
     }
 
     public Order save(Order order) {
-        dynamoDBMapper.save(order);
+        getTable().putItem(order);
         return order;
     }
 
     public Optional<Order> findById(String orderId, String customerId) {
-        return Optional.ofNullable(dynamoDBMapper.load(Order.class, orderId));
+        return Optional.ofNullable(getTable().getItem(Key.builder().partitionValue(orderId).build()));
     }
 
     public List<Order> findByStoreIdAndStatus(String storeId, String status) {
-        Map<String, AttributeValue> eav = new HashMap<>();
-        eav.put(":storeId", new AttributeValue().withS(storeId));
-        
-        String keyConditionExpression = "storeId = :storeId";
-        String filterExpression = null;
-        
-        // Only add status condition if status is provided
+        QueryEnhancedRequest.Builder requestBuilder = QueryEnhancedRequest.builder()
+                .queryConditional(QueryConditional.keyEqualTo(
+                        Key.builder().partitionValue(storeId).build()));
+
         if (status != null && !status.isEmpty()) {
-            eav.put(":status", new AttributeValue().withS(status));
-            filterExpression = "status = :status";
+            requestBuilder.filterExpression(Expression.builder()
+                    .expression("#status = :status")
+                    .putExpressionName("#status", "status")
+                    .putExpressionValue(":status", AttributeValue.builder().s(status).build())
+                    .build());
         }
 
-        DynamoDBQueryExpression<Order> queryExpression = new DynamoDBQueryExpression<Order>()
-                .withIndexName("store-orders-index")
-                .withConsistentRead(false)
-                .withKeyConditionExpression(keyConditionExpression)
-                .withExpressionAttributeValues(eav);
-
-        if (filterExpression != null) {
-            queryExpression.withFilterExpression(filterExpression);
-        }
-
-        return dynamoDBMapper.query(Order.class, queryExpression);
+        return getTable().index("store-orders-index")
+                .query(requestBuilder.build())
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
     }
 
     public List<Order> findByStoreId(String storeId) {
@@ -60,15 +65,13 @@ public class OrderRepository {
     }
 
     public List<Order> findByCustomerId(String customerId) {
-        Map<String, AttributeValue> eav = new HashMap<>();
-        eav.put(":customerId", new AttributeValue().withS(customerId));
-
-        DynamoDBQueryExpression<Order> queryExpression = new DynamoDBQueryExpression<Order>()
-                .withIndexName("customer-orders-index")
-                .withConsistentRead(false)
-                .withKeyConditionExpression("customerId = :customerId")
-                .withExpressionAttributeValues(eav);
-
-        return dynamoDBMapper.query(Order.class, queryExpression);
+        return getTable().index("customer-orders-index")
+                .query(QueryEnhancedRequest.builder()
+                        .queryConditional(QueryConditional.keyEqualTo(
+                                Key.builder().partitionValue(customerId).build()))
+                        .build())
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
     }
 }
