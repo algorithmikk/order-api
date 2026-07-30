@@ -38,8 +38,8 @@ COPY docker/entrypoint.sh /app/entrypoint.sh
 USER root
 RUN chmod +x /app/entrypoint.sh 
 EXPOSE 8080
-# Container-aware heap sizing. Without this the JVM defaults to MaxRAMPercentage=25,
-# which is a ~128 MB heap on a 512 MB task and drives constant GC under load.
-# 70% leaves room for metaspace, code cache and thread stacks.
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=50"
+# Heap is left at the JVM default (MaxRAMPercentage=25). These tasks run below the
+# 2-CPU/1792MB server-class threshold, so the JVM selects SerialGC, whose single-threaded
+# MarkSweepCompact pause scales with heap size. Raising this to 70% regressed p95 by
+# 45-267% across the fleet. Do not increase without also selecting a parallel collector.
 ENTRYPOINT ["/app/entrypoint.sh"]
