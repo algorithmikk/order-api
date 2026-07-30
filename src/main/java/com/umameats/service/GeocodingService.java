@@ -37,8 +37,8 @@ public class GeocodingService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     
-    public GeocodingService() {
-        this.restTemplate = new RestTemplate();
+    public GeocodingService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
         this.objectMapper = new ObjectMapper();
     }
     
