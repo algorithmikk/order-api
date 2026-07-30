@@ -39,7 +39,8 @@ USER root
 RUN chmod +x /app/entrypoint.sh 
 EXPOSE 8080
 # Heap is left at the JVM default (MaxRAMPercentage=25). These tasks run below the
-# 2-CPU/1792MB server-class threshold, so the JVM selects SerialGC, whose single-threaded
-# MarkSweepCompact pause scales with heap size. Raising this to 70% regressed p95 by
-# 45-267% across the fleet. Do not increase without also selecting a parallel collector.
+# 2-CPU/1792MB server-class threshold, so the JVM selects SerialGC (confirmed in
+# production: gc="Copy" / gc="MarkSweepCompact"). Raising this to 70% was tried and
+# reverted: on a 512MB task it leaves too little for metaspace, code cache and thread
+# stacks, and a repeated local benchmark showed no latency benefit at any size.
 ENTRYPOINT ["/app/entrypoint.sh"]
