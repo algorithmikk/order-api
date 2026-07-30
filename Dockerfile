@@ -16,24 +16,30 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
 COPY . .
 RUN ./mvnw clean package -DskipTests
 
-# Run stage
-
-# Extract layers + best-effort JDK AOT Cache (Phase C)
-
-# Extract layered JAR (Phase C). AOT training is offline (test/perf/train-aot-cache.sh) —
-# do not train during image build (corrupt caches crash JDK 26 boot).
+# Extract the jar into an app jar plus a lib directory.
+#
+# Deliberately not `--layers --launcher`. That form is better for image layer reuse, but
+# it puts the application on the classpath as a directory, which produced an AOT cache
+# that could be created yet never mapped at boot on amd64. This jar-plus-lib layout is
+# what the Spring Boot AOT cache documentation uses. Copying lib/ separately keeps most
+# of the layer-caching benefit, since dependencies change far less often than code.
 FROM eclipse-temurin:26-jre AS extract
 WORKDIR /extract
 COPY --from=builder /app/target/*.jar app.jar
-RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
+RUN java -Djarmode=tools -jar app.jar extract --destination extracted \
+ && mv extracted/*.jar extracted/application.jar
 
 # Run stage
 FROM eclipse-temurin:26-jre
 WORKDIR /app
-COPY --from=extract /extract/extracted/dependencies/ ./
-COPY --from=extract /extract/extracted/spring-boot-loader/ ./
-COPY --from=extract /extract/extracted/snapshot-dependencies/ ./
-COPY --from=extract /extract/extracted/application/ ./
+COPY --from=extract /extract/extracted/lib/ ./lib/
+COPY --from=extract /extract/extracted/application.jar ./app.jar
+
+# Build the JDK AOT cache. See docker/build-aot.sh for why this runs in the final image
+# and what it falls back to; it always exits 0, leaving no cache behind if none can be
+# verified, in which case the entrypoint boots normally.
+COPY docker/build-aot.sh /tmp/build-aot.sh
+RUN sh /tmp/build-aot.sh && rm -f /tmp/build-aot.sh
 COPY docker/entrypoint.sh /app/entrypoint.sh
 USER root
 RUN chmod +x /app/entrypoint.sh 

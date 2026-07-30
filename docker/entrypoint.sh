@@ -1,11 +1,18 @@
 #!/bin/sh
-# Extracted Spring Boot layers (JarLauncher). AOT Cache is NOT enabled here.
+# Launches the application jar, using the JDK AOT cache when the image build produced one.
 #
-# Professional AOT (when ready): follow Spring Boot Dockerfiles AOT section —
-# train fail-closed with -XX:AOTCacheOutput=app.aot on extracted application.jar,
-# then always pass -XX:AOTCache=app.aot. See api/test/perf/AOT-CACHE.md.
+# The cache in /app/app.aot is trained during the image build against this exact jar and
+# classpath. The build verifies it by booting with it, and deletes it if that fails, so the
+# file being present already means it was proven usable in this image.
 #
-# Do not opt into a best-effort / empty cache; that crashed JDK 26 at VM init.
+# The guard still matters: it keeps this entrypoint working for an image built without a
+# cache, where the alternative would be failing at VM init on a missing archive.
 set -e
+
+AOT_OPTS=""
+if [ -s /app/app.aot ]; then
+  AOT_OPTS="-XX:AOTCache=/app/app.aot"
+fi
+
 # shellcheck disable=SC2086
-exec java ${JAVA_OPTS:-} org.springframework.boot.loader.launch.JarLauncher "$@"
+exec java ${AOT_OPTS} ${JAVA_OPTS:-} -jar /app/app.jar "$@"
