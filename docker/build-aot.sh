@@ -29,8 +29,9 @@ JAR=app.jar
 CACHE=app.aot
 CONF=app.aotconf
 LOG=/tmp/aot-verify.log
+TRAIN_LOG=/tmp/aot-train.log
 
-cleanup() { rm -f "$CONF" "$LOG"; }
+cleanup() { rm -f "$CONF" "$LOG" "$TRAIN_LOG"; }
 trap cleanup EXIT
 
 # Boots with the candidate cache exactly as the entrypoint will.
@@ -41,8 +42,12 @@ verify() {
 
 echo "AOT: recording training run"
 if ! java -XX:AOTMode=record -XX:AOTConfiguration="$CONF" \
-     -Dspring.context.exit=onRefresh -jar "$JAR" >/dev/null 2>&1; then
+     -Dspring.context.exit=onRefresh -jar "$JAR" >"$TRAIN_LOG" 2>&1; then
   echo "AOT: training run failed; shipping without a cache" >&2
+  # The first failed builds left no reason in the log because stderr was discarded.
+  # Print the Spring / JVM failure so the next attempt can be fixed without another
+  # round of guessing.
+  grep -iE "ERROR|Exception|Caused by:|APPLICATION FAILED" "$TRAIN_LOG" 2>/dev/null | tail -20 >&2 || true
   rm -f "$CACHE"
   exit 0
 fi
