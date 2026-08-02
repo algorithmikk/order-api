@@ -70,6 +70,11 @@ public class Order {
         return driverId;
     }
 
+    @DynamoDbSecondaryPartitionKey(indexNames = "status-index")
+    public OrderStatus getStatus() {
+        return status;
+    }
+
     @DynamoDbConvertedBy(LocalDateTimeAttributeConverter.class)
     public LocalDateTime getOrderDate() {
         return orderDate;

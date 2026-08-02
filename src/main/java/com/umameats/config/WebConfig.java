@@ -14,11 +14,12 @@ public class WebConfig implements WebMvcConfigurer {
                 "https://www.umameats.com",
                 "https://umameats.com",
                 "http://localhost:3000",
-                "https://customer.umameats.com"
+                "https://customer.umameats.com",
+                "https://ops-control-center-theta.vercel.app"
             )
-            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")  // Added PATCH
-            .allowedHeaders("Content-Type", "X-Customer-Id", "Authorization", "*")  // Explicitly list important headers
-            .exposedHeaders("X-Customer-Id")  // Add this to expose the custom header
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
+            .allowedHeaders("Content-Type", "X-Customer-Id", "X-Admin-Token", "Authorization", "*")
+            .exposedHeaders("X-Customer-Id")
             .allowCredentials(true)
             .maxAge(3600);
     }

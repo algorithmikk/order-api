@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Repository;
 
 import com.umameats.model.Order;
+import com.umameats.model.OrderStatus;
 
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -69,6 +70,20 @@ public class OrderRepository {
                 .query(QueryEnhancedRequest.builder()
                         .queryConditional(QueryConditional.keyEqualTo(
                                 Key.builder().partitionValue(customerId).build()))
+                        .build())
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Ops / board query: status-index GSI (same index used by driver-api available orders).
+     */
+    public List<Order> findByStatus(OrderStatus status) {
+        return getTable().index("status-index")
+                .query(QueryEnhancedRequest.builder()
+                        .queryConditional(QueryConditional.keyEqualTo(
+                                Key.builder().partitionValue(status.name()).build()))
                         .build())
                 .stream()
                 .flatMap(page -> page.items().stream())
