@@ -650,4 +650,80 @@ public class OrderService {
 
         throw new RuntimeException("Invalid status transition from " + oldStatus + " to " + newStatus);
     }
+
+    /**
+     * Ops-only status force (admin token). Skips store ownership checks.
+     * Supports restaurant transitions plus PENDING_PAYMENT → CREATED for demo seeding.
+     */
+    public Order opsUpdateStatus(String orderId, OrderStatus newStatus, boolean clearDriver,
+                                 Double restaurantLat, Double restaurantLng) {
+        Order order = orderRepository.findById(orderId, null)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        OrderStatus oldStatus = order.getStatus();
+
+        if (oldStatus == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.CREATED) {
+            // allowed for ops seed / payment bypass
+        } else if (newStatus == OrderStatus.CANCELLED) {
+            // always allowed
+        } else if (oldStatus == newStatus) {
+            // idempotent
+        } else {
+            validateRestaurantStatusTransition(oldStatus, newStatus);
+        }
+
+        order.setStatus(newStatus);
+
+        if (restaurantLat != null) {
+            order.setRestaurantLat(restaurantLat);
+        }
+        if (restaurantLng != null) {
+            order.setRestaurantLng(restaurantLng);
+        }
+
+        if (clearDriver || newStatus == OrderStatus.READY_FOR_PICKUP) {
+            if (clearDriver) {
+                order.setDriverId(null);
+                order.setAssignedDriverId(null);
+                order.setAssignedDriverName(null);
+                order.setAssignedDriverPhone(null);
+                order.setAssignedAt(null);
+                order.setAcceptedAt(null);
+                order.setDeliveryStatus("UNASSIGNED");
+            }
+        }
+
+        Order updatedOrder = orderRepository.save(order);
+        orderEventProducer.publishOrderStatusChange(orderId, newStatus.toString(), updatedOrder);
+
+        Map<String, Object> customerNotification = Map.of(
+            "eventType", "ORDER_STATUS_UPDATED",
+            "orderId", orderId,
+            "customerId", updatedOrder.getCustomerId() != null ? updatedOrder.getCustomerId() : "",
+            "oldStatus", oldStatus != null ? oldStatus.toString() : "",
+            "newStatus", newStatus.toString(),
+            "timestamp", System.currentTimeMillis()
+        );
+        if (updatedOrder.getCustomerId() != null) {
+            orderEventProducer.publishCustomerNotification(updatedOrder.getCustomerId(), orderId, customerNotification);
+        }
+
+        if (newStatus == OrderStatus.CREATED && oldStatus != OrderStatus.CREATED) {
+            Map<String, Object> storeNotification = Map.of(
+                "eventType", "NEW_ORDER",
+                "orderId", orderId,
+                "storeId", updatedOrder.getStoreId() != null ? updatedOrder.getStoreId() : "",
+                "customerId", updatedOrder.getCustomerId() != null ? updatedOrder.getCustomerId() : "",
+                "totalAmount", updatedOrder.getTotalAmount() != null ? updatedOrder.getTotalAmount() : 0L,
+                "timestamp", System.currentTimeMillis()
+            );
+            orderEventProducer.publishStoreNotification(updatedOrder.getStoreId(), orderId, storeNotification);
+        }
+
+        if (newStatus == OrderStatus.READY_FOR_PICKUP && oldStatus != OrderStatus.READY_FOR_PICKUP) {
+            createAndSendDeliveryEvent(updatedOrder);
+        }
+
+        return updatedOrder;
+    }
 }
