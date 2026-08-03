@@ -217,38 +217,60 @@ public class OpsOrderService {
         Order saved = orderRepository.save(order);
         log.info("Ops seed-demo created order {} for store {} (mode={})", saved.getOrderId(), saved.getStoreId(), mode);
 
-        OrderCreatedEvent createdEvent = OrderCreatedEvent.builder()
-                .orderId(saved.getOrderId())
-                .restaurantId(saved.getStoreId())
-                .restaurantLat(restaurantLat)
-                .restaurantLng(restaurantLng)
-                .customerId(customerId)
-                .customerLat(delivery.getLatitude())
-                .customerLng(delivery.getLongitude())
-                .createdAt(System.currentTimeMillis())
-                .build();
-        orderEventProducer.publishOrderCreated(saved.getOrderId(), createdEvent);
-        orderEventProducer.publishOrderStatusChange(saved.getOrderId(), "CREATED", saved);
-
-        Map<String, Object> storeNotification = Map.of(
-                "eventType", "NEW_ORDER",
-                "orderId", saved.getOrderId(),
-                "storeId", saved.getStoreId(),
-                "customerId", customerId,
-                "totalAmount", totalAmount,
-                "timestamp", System.currentTimeMillis()
-        );
-        orderEventProducer.publishStoreNotification(saved.getStoreId(), saved.getOrderId(), storeNotification);
-
         if (readyMode) {
-            saved = orderService.opsUpdateStatus(
-                    saved.getOrderId(),
-                    OrderStatus.READY_FOR_PICKUP,
-                    true,
-                    restaurantLat,
-                    restaurantLng
-            );
+            // Skip Kafka-heavy opsUpdateStatus path for demos — write READY/UNASSIGNED directly.
+            saved.setStatus(OrderStatus.READY_FOR_PICKUP);
+            saved.setDeliveryStatus("UNASSIGNED");
+            saved.setDriverId(null);
+            saved.setAssignedDriverId(null);
+            saved.setAssignedDriverName(null);
+            saved.setAssignedDriverPhone(null);
+            saved.setAssignedAt(null);
+            saved.setAcceptedAt(null);
+            saved = orderRepository.save(saved);
+            log.info("Ops seed-demo marked order {} READY_FOR_PICKUP / UNASSIGNED", saved.getOrderId());
         }
+
+        // Kafka metadata waits can block the request for 60s+ when topics are missing.
+        // Publish off-thread so the HTTP response returns after Dynamo save.
+        final Order kafkaOrder = saved;
+        final String kafkaCustomerId = customerId;
+        final long kafkaTotal = totalAmount;
+        Thread publisher = new Thread(() -> {
+            try {
+                OrderCreatedEvent createdEvent = OrderCreatedEvent.builder()
+                        .orderId(kafkaOrder.getOrderId())
+                        .restaurantId(kafkaOrder.getStoreId())
+                        .restaurantLat(restaurantLat)
+                        .restaurantLng(restaurantLng)
+                        .customerId(kafkaCustomerId)
+                        .customerLat(delivery.getLatitude())
+                        .customerLng(delivery.getLongitude())
+                        .createdAt(System.currentTimeMillis())
+                        .build();
+                orderEventProducer.publishOrderCreated(kafkaOrder.getOrderId(), createdEvent);
+                orderEventProducer.publishOrderStatusChange(
+                        kafkaOrder.getOrderId(),
+                        kafkaOrder.getStatus() != null ? kafkaOrder.getStatus().toString() : "CREATED",
+                        kafkaOrder);
+                orderEventProducer.publishStoreNotification(
+                        kafkaOrder.getStoreId(),
+                        kafkaOrder.getOrderId(),
+                        Map.of(
+                                "eventType", "NEW_ORDER",
+                                "orderId", kafkaOrder.getOrderId(),
+                                "storeId", kafkaOrder.getStoreId(),
+                                "customerId", kafkaCustomerId,
+                                "totalAmount", kafkaTotal,
+                                "timestamp", System.currentTimeMillis()
+                        ));
+            } catch (Exception e) {
+                log.warn("Ops seed-demo Kafka publish failed for {} (order still saved): {}",
+                        kafkaOrder.getOrderId(), e.getMessage());
+            }
+        }, "ops-seed-kafka-" + saved.getOrderId());
+        publisher.setDaemon(true);
+        publisher.start();
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("orderId", saved.getOrderId());
