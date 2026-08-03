@@ -694,35 +694,54 @@ public class OrderService {
         }
 
         Order updatedOrder = orderRepository.save(order);
-        orderEventProducer.publishOrderStatusChange(orderId, newStatus.toString(), updatedOrder);
 
-        Map<String, Object> customerNotification = Map.of(
-            "eventType", "ORDER_STATUS_UPDATED",
-            "orderId", orderId,
-            "customerId", updatedOrder.getCustomerId() != null ? updatedOrder.getCustomerId() : "",
-            "oldStatus", oldStatus != null ? oldStatus.toString() : "",
-            "newStatus", newStatus.toString(),
-            "timestamp", System.currentTimeMillis()
-        );
-        if (updatedOrder.getCustomerId() != null) {
-            orderEventProducer.publishCustomerNotification(updatedOrder.getCustomerId(), orderId, customerNotification);
-        }
+        // Kafka / delivery-event fan-out can block 60s on missing topic metadata.
+        // Persist first, then publish off-thread so ops PATCH stays responsive.
+        final OrderStatus finalOld = oldStatus;
+        final OrderStatus finalNew = newStatus;
+        final Order finalOrder = updatedOrder;
+        Thread fanout = new Thread(() -> {
+            try {
+                orderEventProducer.publishOrderStatusChange(orderId, finalNew.toString(), finalOrder);
 
-        if (newStatus == OrderStatus.CREATED && oldStatus != OrderStatus.CREATED) {
-            Map<String, Object> storeNotification = Map.of(
-                "eventType", "NEW_ORDER",
-                "orderId", orderId,
-                "storeId", updatedOrder.getStoreId() != null ? updatedOrder.getStoreId() : "",
-                "customerId", updatedOrder.getCustomerId() != null ? updatedOrder.getCustomerId() : "",
-                "totalAmount", updatedOrder.getTotalAmount() != null ? updatedOrder.getTotalAmount() : 0L,
-                "timestamp", System.currentTimeMillis()
-            );
-            orderEventProducer.publishStoreNotification(updatedOrder.getStoreId(), orderId, storeNotification);
-        }
+                if (finalOrder.getCustomerId() != null) {
+                    orderEventProducer.publishCustomerNotification(
+                            finalOrder.getCustomerId(),
+                            orderId,
+                            Map.of(
+                                    "eventType", "ORDER_STATUS_UPDATED",
+                                    "orderId", orderId,
+                                    "customerId", finalOrder.getCustomerId(),
+                                    "oldStatus", finalOld != null ? finalOld.toString() : "",
+                                    "newStatus", finalNew.toString(),
+                                    "timestamp", System.currentTimeMillis()
+                            ));
+                }
 
-        if (newStatus == OrderStatus.READY_FOR_PICKUP && oldStatus != OrderStatus.READY_FOR_PICKUP) {
-            createAndSendDeliveryEvent(updatedOrder);
-        }
+                if (finalNew == OrderStatus.CREATED && finalOld != OrderStatus.CREATED
+                        && finalOrder.getStoreId() != null) {
+                    orderEventProducer.publishStoreNotification(
+                            finalOrder.getStoreId(),
+                            orderId,
+                            Map.of(
+                                    "eventType", "NEW_ORDER",
+                                    "orderId", orderId,
+                                    "storeId", finalOrder.getStoreId(),
+                                    "customerId", finalOrder.getCustomerId() != null ? finalOrder.getCustomerId() : "",
+                                    "totalAmount", finalOrder.getTotalAmount() != null ? finalOrder.getTotalAmount() : 0L,
+                                    "timestamp", System.currentTimeMillis()
+                            ));
+                }
+
+                if (finalNew == OrderStatus.READY_FOR_PICKUP && finalOld != OrderStatus.READY_FOR_PICKUP) {
+                    createAndSendDeliveryEvent(finalOrder);
+                }
+            } catch (Exception e) {
+                log.warn("Ops status fan-out failed for {}: {}", orderId, e.getMessage());
+            }
+        }, "ops-status-kafka-" + orderId);
+        fanout.setDaemon(true);
+        fanout.start();
 
         return updatedOrder;
     }
