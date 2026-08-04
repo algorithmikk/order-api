@@ -7,9 +7,13 @@ public enum OrderStatus {
     CONFIRMED,
     PREPARING,
     READY_FOR_PICKUP,
-    DRIVER_EN_ROUTE_TO_STORE,  // Driver accepted and heading to restaurant
-    PICKED_UP,                  // Driver confirmed pickup at restaurant
-    OUT_FOR_DELIVERY,           // Driver heading to customer with food
+    DRIVER_EN_ROUTE_TO_STORE,
+    /** Driver is shopping the grocery list in-store. */
+    DRIVER_SHOPPING,
+    /** All line items resolved; bag/quality gate may proceed. */
+    SHOPPING_COMPLETE,
+    PICKED_UP,
+    OUT_FOR_DELIVERY,
     DELIVERED,
     CANCELLED
 }

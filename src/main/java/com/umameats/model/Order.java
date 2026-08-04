@@ -50,6 +50,24 @@ public class Order {
     private Long acceptedAt;
     private Set<String> declinedByDrivers;
 
+    /** MERCHANT_PREPARES | DRIVER_SHOPS — snapshot from store at create. */
+    private String fulfillmentMode;
+    /** Canonical MERCHANT_TYPE_* snapshot. */
+    private String merchantType;
+    /** CONTACT | BEST_MATCH | REFUND */
+    private String customerSubstitutionPreference;
+    private Boolean requiresIsothermalBag;
+    private Long shoppingStartedAt;
+    private Long shoppingCompletedAt;
+    private Boolean isothermalBagConfirmed;
+    private String bagPhotoUrl;
+    /** JSON or comma-separated checklist keys completed by driver. */
+    private String coldChainChecklist;
+    private Long qualityConfirmedAt;
+    private String proofOfDeliveryUrl;
+    private String deliveryPin;
+    private Long deliveredAt;
+
     @DynamoDbPartitionKey
     public String getOrderId() {
         return orderId;

@@ -11,4 +11,15 @@ public class OrderItem {
     private Integer quantity;
     private Double price;
     private String specialInstructions;
+
+    /** PENDING | FOUND | SUBSTITUTED | UNAVAILABLE */
+    private String pickStatus;
+    private Integer pickedQuantity;
+    private String substituteItemId;
+    private String substituteName;
+    private Double unitPricePaid;
+    private String aisle;
+    /** AMBIENT | CHILLED | FROZEN */
+    private String temperatureClass;
+    private String barcode;
 }

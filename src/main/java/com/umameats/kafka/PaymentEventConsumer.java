@@ -36,6 +36,10 @@ public class PaymentEventConsumer {
     @Autowired
     private com.umameats.service.WhatsAppNotificationService whatsAppNotificationService;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.umameats.service.OrderService orderService;
+
     @KafkaListener(topics = "umameats.payment.events", groupId = "order-api-group")
     public void consumePaymentEvent(
             @Payload String eventJson,
@@ -106,6 +110,9 @@ public class PaymentEventConsumer {
 
             // Send WhatsApp notification to restaurant
             whatsAppNotificationService.sendNewOrderWhatsApp(order);
+
+            // Grocery / DRIVER_SHOPS: open marketplace immediately (no kitchen READY gate)
+            orderService.dispatchDriverShopsIfNeeded(order);
 
         } catch (Exception e) {
             log.error("Error handling payment success: orderId={}", orderId, e);

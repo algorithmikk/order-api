@@ -13,10 +13,13 @@ import com.umameats.kafka.OrderEventProducer;
 import com.umameats.model.DeliveryAddress;
 import com.umameats.model.DeliveryEvent;
 import com.umameats.model.EventRequest;
+import com.umameats.model.FulfillmentMode;
 import com.umameats.model.Order;
 import com.umameats.model.OrderCreatedEvent;
 import com.umameats.model.OrderItem;
 import com.umameats.model.OrderStatus;
+import com.umameats.model.PickStatus;
+import com.umameats.model.TemperatureClass;
 import com.umameats.model.TransactionRequest;
 import com.umameats.repository.OrderRepository;
 
@@ -137,6 +140,9 @@ public class OrderService {
         order.setPickupAddress(pickupAddress);
         order.setStoreName(storeName);
         order.setStorePhone(storePhone);
+
+        // Fulfillment snapshot (grocery vs restaurant)
+        applyFulfillmentSnapshot(order, storeInfo);
 
         // === PRICING CALCULATION ===
         // Calculate subtotal from items (server-side validation)
@@ -736,6 +742,12 @@ public class OrderService {
                 if (finalNew == OrderStatus.READY_FOR_PICKUP && finalOld != OrderStatus.READY_FOR_PICKUP) {
                     createAndSendDeliveryEvent(finalOrder);
                 }
+
+                if (FulfillmentMode.isDriverShops(finalOrder.getFulfillmentMode())
+                        && (finalNew == OrderStatus.CREATED || finalNew == OrderStatus.CONFIRMED)
+                        && finalOld != finalNew) {
+                    createAndSendDeliveryEvent(finalOrder);
+                }
             } catch (Exception e) {
                 log.warn("Ops status fan-out failed for {}: {}", orderId, e.getMessage());
             }
@@ -744,5 +756,90 @@ public class OrderService {
         fanout.start();
 
         return updatedOrder;
+    }
+
+    /**
+     * After payment success for grocery/shop-and-deliver orders, open the marketplace
+     * without waiting for a restaurant READY_FOR_PICKUP transition.
+     */
+    public void dispatchDriverShopsIfNeeded(Order order) {
+        if (order != null && FulfillmentMode.isDriverShops(order.getFulfillmentMode())) {
+            log.info("Dispatching DRIVER_SHOPS order {} for marketplace offers", order.getOrderId());
+            createAndSendDeliveryEvent(order);
+        }
+    }
+
+    private void applyFulfillmentSnapshot(Order order, Map<String, Object> storeInfo) {
+        String merchantType = null;
+        String fulfillmentMode = null;
+        if (storeInfo != null) {
+            if (storeInfo.get("merchantType") != null) {
+                merchantType = String.valueOf(storeInfo.get("merchantType"));
+            }
+            if (storeInfo.get("fulfillmentMode") != null) {
+                fulfillmentMode = String.valueOf(storeInfo.get("fulfillmentMode"));
+            }
+        }
+        if (order.getMerchantType() != null && !order.getMerchantType().isBlank()) {
+            merchantType = order.getMerchantType();
+        }
+        if (order.getFulfillmentMode() != null && !order.getFulfillmentMode().isBlank()) {
+            fulfillmentMode = order.getFulfillmentMode();
+        }
+
+        merchantType = normalizeMerchantType(merchantType);
+        fulfillmentMode = defaultFulfillmentMode(merchantType, fulfillmentMode);
+
+        order.setMerchantType(merchantType);
+        order.setFulfillmentMode(fulfillmentMode);
+
+        if (order.getCustomerSubstitutionPreference() == null
+                || order.getCustomerSubstitutionPreference().isBlank()) {
+            order.setCustomerSubstitutionPreference("BEST_MATCH");
+        }
+
+        boolean requiresBag = Boolean.TRUE.equals(order.getRequiresIsothermalBag());
+        if (order.getItems() != null) {
+            for (OrderItem item : order.getItems()) {
+                if (item.getPickStatus() == null || item.getPickStatus().isBlank()) {
+                    item.setPickStatus(PickStatus.PENDING);
+                }
+                if (TemperatureClass.requiresColdChain(item.getTemperatureClass())) {
+                    requiresBag = true;
+                }
+            }
+        }
+        if (order.getRequiresIsothermalBag() == null) {
+            order.setRequiresIsothermalBag(requiresBag);
+        }
+    }
+
+    private static String normalizeMerchantType(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "MERCHANT_TYPE_RESTAURANT";
+        }
+        String v = raw.trim().toUpperCase();
+        return switch (v) {
+            case "RESTAURANT", "MERCHANT_TYPE_RESTAURANT", "MERCHANT_TYPE_REGULAR", "REGULAR" ->
+                    "MERCHANT_TYPE_RESTAURANT";
+            case "GROCERY", "MERCHANT_TYPE_GROCERY" -> "MERCHANT_TYPE_GROCERY";
+            case "CONVENIENCE", "MERCHANT_TYPE_CONVENIENCE" -> "MERCHANT_TYPE_CONVENIENCE";
+            case "SPECIALTY_FOOD", "MERCHANT_TYPE_SPECIALTY_FOOD", "SPECIALTY" ->
+                    "MERCHANT_TYPE_SPECIALTY_FOOD";
+            default -> v.startsWith("MERCHANT_TYPE_") ? v : "MERCHANT_TYPE_RESTAURANT";
+        };
+    }
+
+    private static String defaultFulfillmentMode(String merchantType, String explicit) {
+        if (FulfillmentMode.DRIVER_SHOPS.equals(explicit)
+                || FulfillmentMode.MERCHANT_PREPARES.equals(explicit)) {
+            return explicit;
+        }
+        return switch (merchantType) {
+            case "MERCHANT_TYPE_GROCERY",
+                 "MERCHANT_TYPE_CONVENIENCE",
+                 "MERCHANT_TYPE_SPECIALTY_FOOD" -> FulfillmentMode.DRIVER_SHOPS;
+            default -> FulfillmentMode.MERCHANT_PREPARES;
+        };
     }
 }
