@@ -1,6 +1,7 @@
 package com.umameats.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,6 +39,9 @@ public class OrderService {
     private final GeocodingService geocodingService;
     private final PricingService pricingService;
     private final TaxService taxService;
+
+    /** Customer review window before shopping is auto-approved. */
+    private static final long SHOPPING_APPROVAL_AUTO_APPROVE_MS = 10 * 60 * 1000L;
 
     public OrderService(OrderRepository orderRepository,
                         PaymentApiClient paymentApiClient,
@@ -536,8 +540,9 @@ public class OrderService {
     }
 
     public Order getOrder(String orderId, String customerId) {
-        return orderRepository.findById(orderId, customerId)
+        Order order = orderRepository.findById(orderId, customerId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+        return maybeAutoApproveShopping(order);
     }
 
     public List<Order> getCustomerOrders(String customerId) {
@@ -546,6 +551,111 @@ public class OrderService {
 
     public List<Order> getStoreOrders(String storeId, String status) {
         return orderRepository.findByStoreIdAndStatus(storeId, status);
+    }
+
+    /**
+     * Customer-facing view of a grocery order's shopping review: what the driver found/substituted
+     * so the customer can approve it or ask for changes.
+     */
+    public Map<String, Object> getShoppingReview(Order order) {
+        List<Map<String, Object>> items = order.getItems() == null
+                ? List.of()
+                : order.getItems().stream()
+                        .map(item -> {
+                            Map<String, Object> itemMap = new HashMap<>();
+                            itemMap.put("itemId", item.getItemId());
+                            itemMap.put("itemName", item.getItemName());
+                            itemMap.put("quantity", item.getQuantity());
+                            itemMap.put("pickStatus", item.getPickStatus());
+                            itemMap.put("pickedQuantity", item.getPickedQuantity());
+                            itemMap.put("substituteName", item.getSubstituteName());
+                            return itemMap;
+                        })
+                        .collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("orderId", order.getOrderId());
+        response.put("status", order.getStatus());
+        response.put("shoppingApprovalRequestedAt", order.getShoppingApprovalRequestedAt());
+        response.put("shoppingChangeRequestNote", order.getShoppingChangeRequestNote());
+        response.put("items", items);
+        return response;
+    }
+
+    /**
+     * Customer approves the driver's shopping picks/substitutions — order moves on to SHOPPING_COMPLETE.
+     */
+    public Order approveShoppingReview(String orderId, String customerId) {
+        Order order = orderRepository.findById(orderId, customerId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        if (!customerId.equals(order.getCustomerId())) {
+            throw new RuntimeException("Access denied - order does not belong to this customer");
+        }
+        if (order.getStatus() != OrderStatus.AWAITING_SHOPPING_APPROVAL) {
+            throw new RuntimeException("Order is not awaiting shopping approval");
+        }
+
+        order.setStatus(OrderStatus.SHOPPING_COMPLETE);
+        order.setShoppingCompletedAt(System.currentTimeMillis());
+        order.setShoppingApprovalRequestedAt(null);
+        order.setShoppingChangeRequestNote(null);
+        Order updatedOrder = orderRepository.save(order);
+
+        orderEventProducer.publishOrderStatusChange(orderId, OrderStatus.SHOPPING_COMPLETE.toString(), updatedOrder);
+        log.info("Customer {} approved shopping for order {}", customerId, orderId);
+
+        return updatedOrder;
+    }
+
+    /**
+     * Customer rejects the driver's shopping picks/substitutions — order goes back to DRIVER_SHOPPING
+     * with a note for the driver to address before re-submitting for approval.
+     */
+    public Order requestShoppingChanges(String orderId, String customerId, String note) {
+        Order order = orderRepository.findById(orderId, customerId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        if (!customerId.equals(order.getCustomerId())) {
+            throw new RuntimeException("Access denied - order does not belong to this customer");
+        }
+        if (order.getStatus() != OrderStatus.AWAITING_SHOPPING_APPROVAL) {
+            throw new RuntimeException("Order is not awaiting shopping approval");
+        }
+
+        order.setStatus(OrderStatus.DRIVER_SHOPPING);
+        order.setShoppingChangeRequestNote(note);
+        order.setShoppingApprovalRequestedAt(null);
+        Order updatedOrder = orderRepository.save(order);
+
+        orderEventProducer.publishOrderStatusChange(orderId, OrderStatus.DRIVER_SHOPPING.toString(), updatedOrder);
+        log.info("Customer {} requested shopping changes for order {}: {}", customerId, orderId, note);
+
+        return updatedOrder;
+    }
+
+    /**
+     * Auto-advances an order stuck in AWAITING_SHOPPING_APPROVAL past the review window so drivers
+     * aren't blocked indefinitely on a non-responsive customer. Safe to call on every customer read.
+     */
+    public Order maybeAutoApproveShopping(Order order) {
+        if (order == null || order.getStatus() != OrderStatus.AWAITING_SHOPPING_APPROVAL) {
+            return order;
+        }
+        Long requestedAt = order.getShoppingApprovalRequestedAt();
+        if (requestedAt == null
+                || System.currentTimeMillis() - requestedAt < SHOPPING_APPROVAL_AUTO_APPROVE_MS) {
+            return order;
+        }
+
+        order.setStatus(OrderStatus.SHOPPING_COMPLETE);
+        order.setShoppingCompletedAt(System.currentTimeMillis());
+        order.setShoppingApprovalRequestedAt(null);
+        Order updatedOrder = orderRepository.save(order);
+
+        orderEventProducer.publishOrderStatusChange(
+                order.getOrderId(), OrderStatus.SHOPPING_COMPLETE.toString(), updatedOrder);
+        log.info("Auto-approved shopping review for order {} after 10 minute window", order.getOrderId());
+
+        return updatedOrder;
     }
 
     public Order updateOrderStatus(String orderId, String customerId, OrderStatus newStatus) {

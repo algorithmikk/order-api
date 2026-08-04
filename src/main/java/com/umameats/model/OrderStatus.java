@@ -10,6 +10,8 @@ public enum OrderStatus {
     DRIVER_EN_ROUTE_TO_STORE,
     /** Driver is shopping the grocery list in-store. */
     DRIVER_SHOPPING,
+    /** All line items resolved; waiting on customer to approve picks/substitutions or request changes. */
+    AWAITING_SHOPPING_APPROVAL,
     /** All line items resolved; bag/quality gate may proceed. */
     SHOPPING_COMPLETE,
     PICKED_UP,

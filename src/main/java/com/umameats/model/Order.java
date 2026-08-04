@@ -59,6 +59,10 @@ public class Order {
     private Boolean requiresIsothermalBag;
     private Long shoppingStartedAt;
     private Long shoppingCompletedAt;
+    /** Epoch ms when the AWAITING_SHOPPING_APPROVAL review window started; drives 10-minute auto-approve. */
+    private Long shoppingApprovalRequestedAt;
+    /** Customer-provided note when requesting changes to picked/substituted items. */
+    private String shoppingChangeRequestNote;
     private Boolean isothermalBagConfirmed;
     private String bagPhotoUrl;
     /** JSON or comma-separated checklist keys completed by driver. */

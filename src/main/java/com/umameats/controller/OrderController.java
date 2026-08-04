@@ -155,4 +155,71 @@ public class OrderController {
                 .body(Map.of("error", e.getMessage()));
         }
     }
+
+    /**
+     * Customer-facing view of the driver's shopping picks/substitutions for a grocery order that is
+     * awaiting shopping approval.
+     */
+    @GetMapping("/{orderId}/shopping-review")
+    public ResponseEntity<?> getShoppingReview(
+            @PathVariable String orderId,
+            @RequestHeader("X-Customer-Id") String customerId
+    ) {
+        try {
+            Order order = orderService.getOrder(orderId, customerId);
+            if (!order.getCustomerId().equals(customerId)) {
+                return ResponseEntity.status(403)
+                    .body(Map.of("error", "Access denied"));
+            }
+            return ResponseEntity.ok(orderService.getShoppingReview(order));
+        } catch (Exception e) {
+            return ResponseEntity.status(404)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Customer approves the driver's shopping picks/substitutions.
+     */
+    @PostMapping("/{orderId}/shopping-review/approve")
+    public ResponseEntity<?> approveShoppingReview(
+            @PathVariable String orderId,
+            @RequestHeader("X-Customer-Id") String customerId
+    ) {
+        try {
+            Order order = orderService.getOrder(orderId, customerId);
+            if (!order.getCustomerId().equals(customerId)) {
+                return ResponseEntity.status(403)
+                    .body(Map.of("error", "Access denied"));
+            }
+            return ResponseEntity.ok(orderService.approveShoppingReview(orderId, customerId));
+        } catch (Exception e) {
+            return ResponseEntity.status(400)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Customer requests changes to the driver's shopping picks/substitutions, sending the order back
+     * to DRIVER_SHOPPING with a note for the driver.
+     */
+    @PostMapping("/{orderId}/shopping-review/request-changes")
+    public ResponseEntity<?> requestShoppingChanges(
+            @PathVariable String orderId,
+            @RequestHeader("X-Customer-Id") String customerId,
+            @RequestBody(required = false) Map<String, String> body
+    ) {
+        try {
+            Order order = orderService.getOrder(orderId, customerId);
+            if (!order.getCustomerId().equals(customerId)) {
+                return ResponseEntity.status(403)
+                    .body(Map.of("error", "Access denied"));
+            }
+            String note = body != null ? body.get("note") : null;
+            return ResponseEntity.ok(orderService.requestShoppingChanges(orderId, customerId, note));
+        } catch (Exception e) {
+            return ResponseEntity.status(400)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
 }
