@@ -33,6 +33,19 @@ public class SecretsManagerService {
         return secretCache.computeIfAbsent(cacheKey, k -> fetchSecretValue(secretName, jsonKey));
     }
 
+    /**
+     * Shared HS256 signing secret for customer and driver sessions. Prefers env
+     * {@code JWT_SECRET} for local development, then AWS Secrets Manager, matching
+     * how customer-api and driver-api resolve it.
+     */
+    public String getJwtSecret() {
+        String fromEnv = System.getenv("JWT_SECRET");
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return fromEnv.trim();
+        }
+        return getSecretValue("prod/jwt-secret", "JWT_SECRET");
+    }
+
     private String fetchSecretValue(String secretName, String jsonKey) {
         try {
             GetSecretValueRequest request = GetSecretValueRequest.builder()

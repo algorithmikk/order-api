@@ -1,0 +1,234 @@
+[
+  {
+    "id": "delivery-time-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "How long does delivery take?",
+    "answer": "Most UmaMeats deliveries arrive within 25 to 45 minutes of being confirmed. Grocery orders where a driver shops your list take longer, usually 45 to 70 minutes, because the driver picks each item in store. The live estimate on your order screen is the one to trust, since it updates from the driver's actual position.",
+    "tags": ["delivery", "time", "eta", "late", "estimate", "slow"]
+  },
+  {
+    "id": "order-late-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "My order is late. What can I do?",
+    "answer": "Check the live map on your order screen first, as it shows exactly where the driver is. Traffic and busy kitchens are the usual causes. If the order is more than 20 minutes past its estimate, support can offer a credit. If it has not moved at all for a long stretch, that usually means a problem worth escalating to a human agent.",
+    "tags": ["late", "delayed", "slow", "waiting", "missing", "stuck"]
+  },
+  {
+    "id": "missing-items-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "Some items are missing from my order.",
+    "answer": "Report missing items within 48 hours of delivery. UmaMeats refunds the missing items to the original payment method, and refunds normally take 3 to 5 business days to appear. For grocery orders, check the receipt first: an item marked SUBSTITUTED was replaced with something similar, and an item marked UNAVAILABLE was already refunded automatically when the driver could not find it.",
+    "tags": ["missing", "items", "wrong", "incomplete", "refund", "substituted"]
+  },
+  {
+    "id": "refund-timing-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "When will my refund arrive?",
+    "answer": "Approved refunds are sent back to the original payment method and take 3 to 5 business days to appear, depending on your bank. Card refunds sometimes show as a reversal of the original charge rather than a new line item, so it is worth checking the original transaction on your statement.",
+    "tags": ["refund", "money", "back", "credit", "charge", "reimbursement"]
+  },
+  {
+    "id": "cancel-order-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "Can I cancel my order?",
+    "answer": "You can cancel free of charge until the merchant starts preparing your order. After preparation begins, cancelling means the food has already been made and paid for, so a full refund is not automatic. Once a driver has collected the order it can no longer be cancelled, though support can still help if something is wrong with it.",
+    "tags": ["cancel", "cancellation", "stop", "change", "mistake"]
+  },
+  {
+    "id": "wrong-address-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "I entered the wrong delivery address.",
+    "answer": "Message your driver straight away through the chat on the order screen. If they have not set off yet they can often reroute. Once the driver is close to the original address, a change may not be possible and the order may need to be redelivered at extra cost. Address changes are not possible after an order is marked delivered.",
+    "tags": ["address", "wrong", "change", "location", "moved", "reroute"]
+  },
+  {
+    "id": "contact-driver-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "How do I contact my driver?",
+    "answer": "Open your order and use the chat button next to the driver's name to message them, or the phone button to call. Chat is available while the delivery is in progress and for one hour after drop-off. Outside that window, contact support instead.",
+    "tags": ["contact", "driver", "message", "chat", "call", "reach"]
+  },
+  {
+    "id": "cold-food-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "My food arrived cold or damaged.",
+    "answer": "Report it within 48 hours with a short description of the problem. Cold or spilled food is normally refunded in part or in full depending on how much of the order was affected. Photos help but are not required. Frozen and chilled grocery items travel in an insulated bag, so if those arrived warm it is worth flagging as a cold-chain issue.",
+    "tags": ["cold", "damaged", "spilled", "quality", "bad", "melted", "warm"]
+  },
+  {
+    "id": "delivery-fees-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "What are the fees on my order?",
+    "answer": "An order total combines the item subtotal, a delivery fee that varies with distance, a service fee, applicable tax, and any tip you added. Tips go entirely to the driver. Founding members get free delivery, and that discount is applied automatically at checkout rather than needing a code.",
+    "tags": ["fee", "fees", "charge", "cost", "price", "total", "expensive", "tax", "tip"]
+  },
+  {
+    "id": "grocery-substitutions-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "How do grocery substitutions work?",
+    "answer": "When a driver cannot find an item, what happens next depends on the preference you set at checkout. CONTACT means the driver messages you to agree on a replacement, BEST_MATCH lets them choose the closest equivalent, and REFUND means the item is simply refunded. For orders needing your approval, you have 10 minutes to review the picks before they are auto-approved so the delivery is not held up.",
+    "tags": ["grocery", "substitution", "replace", "unavailable", "shopping", "approval"]
+  },
+  {
+    "id": "payment-failed-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "My payment failed.",
+    "answer": "A failed payment usually means the card was declined, expired, or the bank flagged the transaction. Add or select a different payment method in the app and place the order again. If you see a pending charge for the failed order, it is an authorisation hold and it drops off on its own within a few business days.",
+    "tags": ["payment", "failed", "declined", "card", "charge", "billing"]
+  },
+  {
+    "id": "account-delete-en",
+    "audience": "CUSTOMER",
+    "locale": "en",
+    "question": "How do I delete my account?",
+    "answer": "Open Account, scroll to the bottom and choose Delete Account. Deletion is permanent and removes your saved addresses, payment methods and order history. Any refund still in progress is completed before the account closes.",
+    "tags": ["delete", "account", "close", "remove", "privacy", "data"]
+  },
+  {
+    "id": "driver-payout-en",
+    "audience": "DRIVER",
+    "locale": "en",
+    "question": "When do I get paid?",
+    "answer": "Earnings from completed deliveries land in your balance right away and pay out on the normal weekly schedule. Instant payout moves the eligible portion of your balance to your debit card in minutes for a small fee. Your payout method has to be fully onboarded with Stripe before either can happen.",
+    "tags": ["pay", "payout", "earnings", "money", "instant", "balance", "deposit"]
+  },
+  {
+    "id": "driver-cannot-find-customer-en",
+    "audience": "DRIVER",
+    "locale": "en",
+    "question": "I cannot find the customer or the address.",
+    "answer": "Message the customer through the delivery chat first, then try calling. Wait at least 5 minutes after arriving and attempt contact twice. If there is still no answer, report it through support so the delivery can be closed correctly and your pay for the trip is protected. Do not leave food unattended unless the customer has agreed to it in writing in the chat.",
+    "tags": ["find", "customer", "address", "lost", "contact", "unreachable", "nobody"]
+  },
+  {
+    "id": "driver-order-issue-en",
+    "audience": "DRIVER",
+    "locale": "en",
+    "question": "The store is closed or the order is not ready.",
+    "answer": "Report it from the delivery screen as soon as you know. If a store is closed, support unassigns the delivery and you keep the trip compensation. If the order is just running late, waiting is usually the better outcome for you, but report anything over 15 minutes so the wait is compensated.",
+    "tags": ["store", "closed", "ready", "waiting", "restaurant", "delay", "unassign"]
+  },
+  {
+    "id": "driver-cold-chain-en",
+    "audience": "DRIVER",
+    "locale": "en",
+    "question": "What are the rules for chilled and frozen items?",
+    "answer": "Chilled and frozen grocery items go in the insulated bag, and you confirm this in the app before leaving the store. Complete the cold-chain checklist and photograph the sealed bag when prompted. Skipping these steps can result in the delivery being disputed and the pay for it withheld.",
+    "tags": ["cold", "frozen", "chilled", "bag", "isothermal", "grocery", "checklist", "temperature"]
+  },
+  {
+    "id": "driver-acceptance-rate-en",
+    "audience": "DRIVER",
+    "locale": "en",
+    "question": "Does declining offers affect me?",
+    "answer": "Declining an offer does not reduce your pay or block future offers. Accepting an offer and then abandoning it does count against you, because the order has to be reassigned and the customer waits longer. If you cannot complete a delivery you have accepted, report it rather than letting it time out.",
+    "tags": ["decline", "reject", "acceptance", "rate", "offers", "abandon"]
+  },
+  {
+    "id": "driver-app-tracking-en",
+    "audience": "DRIVER",
+    "locale": "en",
+    "question": "Why does the app need my location in the background?",
+    "answer": "Background location is what lets customers watch your approach on the live map and lets the system calculate accurate arrival times. It is only recorded while you are online with an active delivery. Turning it off stops you receiving offers, because dispatch cannot tell which deliveries are near you.",
+    "tags": ["location", "gps", "background", "tracking", "battery", "permission"]
+  },
+  {
+    "id": "delivery-time-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Combien de temps prend la livraison ?",
+    "answer": "La plupart des livraisons UmaMeats arrivent entre 25 et 45 minutes apres la confirmation. Les commandes d'epicerie, ou un livreur fait vos courses, prennent plus longtemps, generalement de 45 a 70 minutes. L'estimation en direct affichee sur votre commande est la plus fiable, car elle se met a jour selon la position reelle du livreur.",
+    "tags": ["livraison", "temps", "retard", "estimation", "delai", "lent"]
+  },
+  {
+    "id": "order-late-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Ma commande est en retard. Que faire ?",
+    "answer": "Consultez d'abord la carte en direct sur l'ecran de votre commande, elle montre exactement ou se trouve le livreur. La circulation et les cuisines chargees en sont les causes habituelles. Si la commande depasse son estimation de plus de 20 minutes, le service client peut offrir un credit.",
+    "tags": ["retard", "attente", "lent", "bloque", "commande"]
+  },
+  {
+    "id": "missing-items-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Des articles manquent dans ma commande.",
+    "answer": "Signalez les articles manquants dans les 48 heures suivant la livraison. UmaMeats rembourse les articles manquants sur le mode de paiement d'origine, et le remboursement met generalement de 3 a 5 jours ouvrables a apparaitre. Pour l'epicerie, verifiez d'abord le recu : un article marque SUBSTITUTED a ete remplace, et un article marque UNAVAILABLE a deja ete rembourse automatiquement.",
+    "tags": ["manquant", "articles", "incomplet", "remboursement", "erreur"]
+  },
+  {
+    "id": "refund-timing-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Quand vais-je recevoir mon remboursement ?",
+    "answer": "Les remboursements approuves sont renvoyes sur le mode de paiement d'origine et prennent de 3 a 5 jours ouvrables selon votre banque. Un remboursement par carte apparait parfois comme une annulation du debit initial plutot que comme une nouvelle ligne sur le releve.",
+    "tags": ["remboursement", "argent", "credit", "banque", "delai"]
+  },
+  {
+    "id": "cancel-order-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Puis-je annuler ma commande ?",
+    "answer": "Vous pouvez annuler sans frais tant que le commercant n'a pas commence la preparation. Une fois la preparation commencee, la nourriture a deja ete preparee et payee, donc le remboursement integral n'est pas automatique. Des qu'un livreur a recupere la commande, l'annulation n'est plus possible.",
+    "tags": ["annuler", "annulation", "arreter", "modifier", "erreur"]
+  },
+  {
+    "id": "contact-driver-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Comment contacter mon livreur ?",
+    "answer": "Ouvrez votre commande et utilisez le bouton de discussion a cote du nom du livreur pour lui ecrire, ou le bouton d'appel pour le joindre. La discussion est disponible pendant la livraison et durant une heure apres la remise. En dehors de cette periode, contactez le service client.",
+    "tags": ["contacter", "livreur", "message", "discussion", "appeler", "joindre"]
+  },
+  {
+    "id": "cold-food-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Ma nourriture est arrivee froide ou abimee.",
+    "answer": "Signalez-le dans les 48 heures avec une breve description du probleme. Une commande froide ou renversee est normalement remboursee en partie ou en totalite selon l'ampleur du probleme. Les photos aident mais ne sont pas obligatoires.",
+    "tags": ["froid", "abime", "renverse", "qualite", "mauvais"]
+  },
+  {
+    "id": "delivery-fees-fr",
+    "audience": "CUSTOMER",
+    "locale": "fr",
+    "question": "Quels sont les frais sur ma commande ?",
+    "answer": "Le total combine le sous-total des articles, des frais de livraison qui varient selon la distance, des frais de service, la taxe applicable et le pourboire ajoute. Les pourboires reviennent integralement au livreur. Les membres fondateurs beneficient de la livraison gratuite, appliquee automatiquement au paiement.",
+    "tags": ["frais", "cout", "prix", "total", "taxe", "pourboire", "cher"]
+  },
+  {
+    "id": "driver-payout-fr",
+    "audience": "DRIVER",
+    "locale": "fr",
+    "question": "Quand suis-je paye ?",
+    "answer": "Les gains des livraisons terminees sont ajoutes a votre solde immediatement et verses selon le calendrier hebdomadaire habituel. Le versement instantane transfere la portion admissible de votre solde vers votre carte de debit en quelques minutes moyennant des frais modiques. Votre methode de versement doit etre entierement configuree avec Stripe.",
+    "tags": ["paie", "versement", "gains", "argent", "instantane", "solde"]
+  },
+  {
+    "id": "driver-cannot-find-customer-fr",
+    "audience": "DRIVER",
+    "locale": "fr",
+    "question": "Je ne trouve pas le client ou l'adresse.",
+    "answer": "Ecrivez d'abord au client par la discussion de livraison, puis essayez d'appeler. Attendez au moins 5 minutes apres votre arrivee et tentez de le joindre deux fois. Sans reponse, signalez-le au service client afin que la livraison soit cloturee correctement et que votre paie soit protegee. Ne laissez jamais la nourriture sans surveillance sauf accord ecrit du client dans la discussion.",
+    "tags": ["trouver", "client", "adresse", "perdu", "contacter", "injoignable"]
+  },
+  {
+    "id": "driver-cold-chain-fr",
+    "audience": "DRIVER",
+    "locale": "fr",
+    "question": "Quelles sont les regles pour les produits refrigeres et congeles ?",
+    "answer": "Les produits refrigeres et congeles vont dans le sac isotherme, et vous le confirmez dans l'application avant de quitter le magasin. Completez la liste de controle de la chaine du froid et photographiez le sac scelle lorsque cela vous est demande. Sauter ces etapes peut entrainer une contestation de la livraison.",
+    "tags": ["froid", "congele", "refrigere", "sac", "isotherme", "epicerie", "temperature"]
+  }
+]

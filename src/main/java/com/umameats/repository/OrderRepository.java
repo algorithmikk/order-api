@@ -77,6 +77,23 @@ public class OrderRepository {
     }
 
     /**
+     * Orders assigned to a driver, via the driver-orders-index GSI.
+     *
+     * <p>Older records store the driver's email in {@code driverId}, so callers
+     * that have both should query each and merge, the way driver-api does.
+     */
+    public List<Order> findByDriverId(String driverId) {
+        return getTable().index("driver-orders-index")
+                .query(QueryEnhancedRequest.builder()
+                        .queryConditional(QueryConditional.keyEqualTo(
+                                Key.builder().partitionValue(driverId).build()))
+                        .build())
+                .stream()
+                .flatMap(page -> page.items().stream())
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Ops / board query: status-index GSI (same index used by driver-api available orders).
      */
     public List<Order> findByStatus(OrderStatus status) {
