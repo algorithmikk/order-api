@@ -4,12 +4,11 @@ package com.umameats.client;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.umameats.messaging.TraceContext;
 import com.umameats.model.EventRequest;
 import com.umameats.model.EventResponse;
 
 import reactor.core.publisher.Mono;
-
-import java.util.UUID;
 
 @Component
 public class EventApiClient {
@@ -23,15 +22,11 @@ public class EventApiClient {
 
     /**
      * Creates a delivery event for an order
-     *
-     * @param orderId The ID of the order
-     * @param eventRequest The event request containing the delivery event
-     * @return A Mono containing the event response
      */
     public Mono<EventResponse> createDeliveryEvent(String orderId, EventRequest eventRequest) {
         return webClient.post()
             .uri("/delivery/{orderId}", orderId)
-            .header("X-Trace-Id", UUID.randomUUID().toString())  // For tracing
+            .header("X-Trace-Id", TraceContext.currentTraceId())
             .bodyValue(eventRequest)
             .retrieve()
             .bodyToMono(EventResponse.class);

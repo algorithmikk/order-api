@@ -1,11 +1,11 @@
 package com.umameats.client;
 
 import java.util.Map;
-import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.umameats.messaging.TraceContext;
 import com.umameats.model.TransactionRequest;
 import com.umameats.model.TransactionResponse;
 
@@ -31,7 +31,7 @@ public class PaymentApiClient {
         return webClient.post()
             .uri("/transactions")
             .header("X-Customer-Id", customerId)
-            .header("X-Trace-Id", UUID.randomUUID().toString())  // Added for tracing
+            .header("X-Trace-Id", TraceContext.currentTraceId())
             .bodyValue(request)
             .retrieve()
             .bodyToMono(TransactionResponse.class);
