@@ -18,7 +18,7 @@ Spring Boot microservice that manages the full order lifecycle for UmaMeats — 
 
 ## API Reference
 
-All endpoints are prefixed with `/api/v1`.
+All endpoints aree prefixed with `/api/v1`.
 
 ### Orders — `POST /orders`
 
