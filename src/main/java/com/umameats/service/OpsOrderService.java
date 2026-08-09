@@ -23,6 +23,7 @@ import org.springframework.web.client.RestTemplate;
 import com.umameats.kafka.OrderEventProducer;
 import com.umameats.model.BillingDetails;
 import com.umameats.model.DeliveryAddress;
+import com.umameats.model.FulfillmentMode;
 import com.umameats.model.OpsStatusUpdateRequest;
 import com.umameats.model.Order;
 import com.umameats.model.OrderCreatedEvent;
@@ -173,7 +174,10 @@ public class OpsOrderService {
         order.setPaymentMethod("CARD");
         order.setPaymentMethodId("ops_seed_demo");
         order.setOrderDate(LocalDateTime.now());
-        order.setSpecialInstructions("E2E demo seed — safe to advance through kitchen → driver");
+        boolean proxyMode = "PROXY".equals(mode) || "DRIVER_PROXY".equals(mode);
+        order.setSpecialInstructions(proxyMode
+                ? "E2E demo seed — DRIVER_PROXY launch path (no kitchen)"
+                : "E2E demo seed — safe to advance through kitchen → driver");
         order.setTip(tipCents);
 
         String storeName = (String) storeInfo.get("name");
@@ -211,13 +215,18 @@ public class OpsOrderService {
         order.setTotalAmount(totalAmount);
 
         boolean readyMode = "READY".equals(mode) || "READY_FOR_PICKUP".equals(mode);
+        if (proxyMode) {
+            order.setFulfillmentMode(FulfillmentMode.DRIVER_PROXY);
+            order.setMerchantType("MERCHANT_TYPE_RESTAURANT");
+        }
         order.setStatus(OrderStatus.CREATED);
         order.setDeliveryStatus("UNASSIGNED");
+        OrderService.ensureDeliveryPin(order);
 
         Order saved = orderRepository.save(order);
         log.info("Ops seed-demo created order {} for store {} (mode={})", saved.getOrderId(), saved.getStoreId(), mode);
 
-        if (readyMode) {
+        if (readyMode && !proxyMode) {
             // Skip Kafka-heavy opsUpdateStatus path for demos — write READY/UNASSIGNED directly.
             saved.setStatus(OrderStatus.READY_FOR_PICKUP);
             saved.setDeliveryStatus("UNASSIGNED");
@@ -231,11 +240,17 @@ public class OpsOrderService {
             log.info("Ops seed-demo marked order {} READY_FOR_PICKUP / UNASSIGNED", saved.getOrderId());
         }
 
+        if (proxyMode) {
+            // Open marketplace the same way payment success would for DRIVER_PROXY.
+            orderService.dispatchImmediateIfNeeded(saved);
+        }
+
         // Kafka metadata waits can block the request for 60s+ when topics are missing.
         // Publish off-thread so the HTTP response returns after Dynamo save.
         final Order kafkaOrder = saved;
         final String kafkaCustomerId = customerId;
         final long kafkaTotal = totalAmount;
+        final boolean skipStoreNotify = proxyMode;
         Thread publisher = new Thread(() -> {
             try {
                 OrderCreatedEvent createdEvent = OrderCreatedEvent.builder()
@@ -253,17 +268,19 @@ public class OpsOrderService {
                         kafkaOrder.getOrderId(),
                         kafkaOrder.getStatus() != null ? kafkaOrder.getStatus().toString() : "CREATED",
                         kafkaOrder);
-                orderEventProducer.publishStoreNotification(
-                        kafkaOrder.getStoreId(),
-                        kafkaOrder.getOrderId(),
-                        Map.of(
-                                "eventType", "NEW_ORDER",
-                                "orderId", kafkaOrder.getOrderId(),
-                                "storeId", kafkaOrder.getStoreId(),
-                                "customerId", kafkaCustomerId,
-                                "totalAmount", kafkaTotal,
-                                "timestamp", System.currentTimeMillis()
-                        ));
+                if (!skipStoreNotify) {
+                    orderEventProducer.publishStoreNotification(
+                            kafkaOrder.getStoreId(),
+                            kafkaOrder.getOrderId(),
+                            Map.of(
+                                    "eventType", "NEW_ORDER",
+                                    "orderId", kafkaOrder.getOrderId(),
+                                    "storeId", kafkaOrder.getStoreId(),
+                                    "customerId", kafkaCustomerId,
+                                    "totalAmount", kafkaTotal,
+                                    "timestamp", System.currentTimeMillis()
+                            ));
+                }
             } catch (Exception e) {
                 log.warn("Ops seed-demo Kafka publish failed for {} (order still saved): {}",
                         kafkaOrder.getOrderId(), e.getMessage());
@@ -277,6 +294,7 @@ public class OpsOrderService {
         body.put("storeId", saved.getStoreId());
         body.put("status", saved.getStatus() != null ? saved.getStatus().toString() : null);
         body.put("deliveryStatus", saved.getDeliveryStatus());
+        body.put("fulfillmentMode", saved.getFulfillmentMode());
         body.put("customerId", customerId);
         body.put("totalAmount", saved.getTotalAmount());
         return body;

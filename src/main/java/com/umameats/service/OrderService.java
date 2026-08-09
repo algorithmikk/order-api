@@ -1,5 +1,6 @@
 package com.umameats.service;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +43,8 @@ public class OrderService {
 
     /** Customer review window before shopping is auto-approved. */
     private static final long SHOPPING_APPROVAL_AUTO_APPROVE_MS = 10 * 60 * 1000L;
+
+    private static final SecureRandom DELIVERY_PIN_RANDOM = new SecureRandom();
 
     public OrderService(OrderRepository orderRepository,
                         PaymentApiClient paymentApiClient,
@@ -137,6 +140,7 @@ public class OrderService {
         order.setOrderId(UUID.randomUUID().toString());
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(OrderStatus.PENDING_PAYMENT);
+        ensureDeliveryPin(order);
 
         // Save restaurant info to Order
         order.setRestaurantLat(restaurantLat);
@@ -700,6 +704,13 @@ public class OrderService {
             throw new RuntimeException("Access denied - order does not belong to this store");
         }
 
+        // Launch proxy / grocery: no kitchen dashboard owns status transitions
+        if (FulfillmentMode.isDriverProxy(order.getFulfillmentMode())
+                || FulfillmentMode.isDriverShops(order.getFulfillmentMode())) {
+            throw new RuntimeException(
+                    "Kitchen status updates are not allowed for " + order.getFulfillmentMode() + " orders");
+        }
+
         // Validate status transition
         validateRestaurantStatusTransition(order.getStatus(), newStatus);
 
@@ -835,7 +846,8 @@ public class OrderService {
                 }
 
                 if (finalNew == OrderStatus.CREATED && finalOld != OrderStatus.CREATED
-                        && finalOrder.getStoreId() != null) {
+                        && finalOrder.getStoreId() != null
+                        && !FulfillmentMode.isDriverProxy(finalOrder.getFulfillmentMode())) {
                     orderEventProducer.publishStoreNotification(
                             finalOrder.getStoreId(),
                             orderId,
@@ -853,7 +865,7 @@ public class OrderService {
                     createAndSendDeliveryEvent(finalOrder);
                 }
 
-                if (FulfillmentMode.isDriverShops(finalOrder.getFulfillmentMode())
+                if (FulfillmentMode.isImmediateDispatch(finalOrder.getFulfillmentMode())
                         && (finalNew == OrderStatus.CREATED || finalNew == OrderStatus.CONFIRMED)
                         && finalOld != finalNew) {
                     createAndSendDeliveryEvent(finalOrder);
@@ -869,25 +881,36 @@ public class OrderService {
     }
 
     /**
-     * After payment success for grocery/shop-and-deliver orders, open the marketplace
+     * After payment success for grocery / launch-proxy orders, open the marketplace
      * without waiting for a restaurant READY_FOR_PICKUP transition.
      */
-    public void dispatchDriverShopsIfNeeded(Order order) {
-        if (order != null && FulfillmentMode.isDriverShops(order.getFulfillmentMode())) {
-            log.info("Dispatching DRIVER_SHOPS order {} for marketplace offers", order.getOrderId());
+    public void dispatchImmediateIfNeeded(Order order) {
+        if (order != null && FulfillmentMode.isImmediateDispatch(order.getFulfillmentMode())) {
+            log.info("Dispatching {} order {} for marketplace offers",
+                    order.getFulfillmentMode(), order.getOrderId());
             createAndSendDeliveryEvent(order);
         }
+    }
+
+    /** @deprecated use {@link #dispatchImmediateIfNeeded(Order)} */
+    @Deprecated
+    public void dispatchDriverShopsIfNeeded(Order order) {
+        dispatchImmediateIfNeeded(order);
     }
 
     private void applyFulfillmentSnapshot(Order order, Map<String, Object> storeInfo) {
         String merchantType = null;
         String fulfillmentMode = null;
+        String storeStatus = null;
         if (storeInfo != null) {
             if (storeInfo.get("merchantType") != null) {
                 merchantType = String.valueOf(storeInfo.get("merchantType"));
             }
             if (storeInfo.get("fulfillmentMode") != null) {
                 fulfillmentMode = String.valueOf(storeInfo.get("fulfillmentMode"));
+            }
+            if (storeInfo.get("status") != null) {
+                storeStatus = String.valueOf(storeInfo.get("status"));
             }
         }
         if (order.getMerchantType() != null && !order.getMerchantType().isBlank()) {
@@ -898,7 +921,7 @@ public class OrderService {
         }
 
         merchantType = normalizeMerchantType(merchantType);
-        fulfillmentMode = defaultFulfillmentMode(merchantType, fulfillmentMode);
+        fulfillmentMode = defaultFulfillmentMode(merchantType, fulfillmentMode, storeStatus);
 
         order.setMerchantType(merchantType);
         order.setFulfillmentMode(fulfillmentMode);
@@ -941,15 +964,40 @@ public class OrderService {
     }
 
     private static String defaultFulfillmentMode(String merchantType, String explicit) {
+        return defaultFulfillmentMode(merchantType, explicit, null);
+    }
+
+    private static String defaultFulfillmentMode(String merchantType, String explicit, String storeStatus) {
         if (FulfillmentMode.DRIVER_SHOPS.equals(explicit)
-                || FulfillmentMode.MERCHANT_PREPARES.equals(explicit)) {
+                || FulfillmentMode.MERCHANT_PREPARES.equals(explicit)
+                || FulfillmentMode.DRIVER_PROXY.equals(explicit)) {
             return explicit;
         }
-        return switch (merchantType) {
+        boolean grocery = switch (merchantType) {
             case "MERCHANT_TYPE_GROCERY",
                  "MERCHANT_TYPE_CONVENIENCE",
-                 "MERCHANT_TYPE_SPECIALTY_FOOD" -> FulfillmentMode.DRIVER_SHOPS;
-            default -> FulfillmentMode.MERCHANT_PREPARES;
+                 "MERCHANT_TYPE_SPECIALTY_FOOD" -> true;
+            default -> false;
         };
+        if ("PROXY".equalsIgnoreCase(storeStatus) && !grocery) {
+            return FulfillmentMode.DRIVER_PROXY;
+        }
+        return grocery ? FulfillmentMode.DRIVER_SHOPS : FulfillmentMode.MERCHANT_PREPARES;
+    }
+
+    /**
+     * Assigns a 4-digit delivery PIN once. Never regenerates if already set.
+     * Customer shows this PIN; driver must submit the matching value at drop-off.
+     */
+    public static void ensureDeliveryPin(Order order) {
+        if (order == null) {
+            return;
+        }
+        String existing = order.getDeliveryPin();
+        if (existing != null && !existing.isBlank()) {
+            return;
+        }
+        int pin = DELIVERY_PIN_RANDOM.nextInt(10_000);
+        order.setDeliveryPin(String.format("%04d", pin));
     }
 }

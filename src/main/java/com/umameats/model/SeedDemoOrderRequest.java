@@ -9,7 +9,7 @@ import lombok.Data;
 public class SeedDemoOrderRequest {
     private String customerId;
     private String storeId;
-    /** CREATED (default) or READY */
+    /** CREATED (default), READY, or PROXY (launch driver-proxy, no kitchen) */
     private String mode;
     private Long tipCents;
 }

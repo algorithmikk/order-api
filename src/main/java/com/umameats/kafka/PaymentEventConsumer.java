@@ -14,6 +14,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umameats.messaging.TraceContext;
 import com.umameats.messaging.consumer.IdempotentEventProcessor;
+import com.umameats.model.FulfillmentMode;
 import com.umameats.model.Order;
 import com.umameats.model.OrderStatus;
 import com.umameats.repository.OrderRepository;
@@ -95,10 +96,16 @@ public class PaymentEventConsumer {
                 || order.getStatus() == OrderStatus.OUT_FOR_DELIVERY
                 || order.getStatus() == OrderStatus.DELIVERED) {
             log.info("Idempotent skip: order already past payment success orderId={} status={}", orderId, order.getStatus());
+            // Heal: immediate-dispatch modes that never got UNASSIGNED still need marketplace open
+            if (FulfillmentMode.isImmediateDispatch(order.getFulfillmentMode())
+                    && (order.getDeliveryStatus() == null || order.getDeliveryStatus().isBlank())) {
+                orderService.dispatchImmediateIfNeeded(order);
+            }
             return;
         }
 
         order.setStatus(OrderStatus.CREATED);
+        com.umameats.service.OrderService.ensureDeliveryPin(order);
         orderRepository.save(order);
         log.info("Order status updated to CREATED after payment success: orderId={}", orderId);
 
@@ -132,15 +139,22 @@ public class PaymentEventConsumer {
         orderPaid.put("paidAt", System.currentTimeMillis());
         orderEventProducer.publishOrderPaid(orderId, orderPaid);
 
-        Map<String, Object> storeNotification = Map.of(
-                "eventType", "NEW_ORDER",
-                "orderId", orderId,
-                "storeId", order.getStoreId(),
-                "customerId", customerId,
-                "totalAmount", order.getTotalAmount(),
-                "items", order.getItems(),
-                "timestamp", System.currentTimeMillis());
-        orderEventProducer.publishStoreNotification(order.getStoreId(), orderId, storeNotification);
+        boolean proxy = FulfillmentMode.isDriverProxy(order.getFulfillmentMode());
+        if (!proxy) {
+            Map<String, Object> storeNotification = Map.of(
+                    "eventType", "NEW_ORDER",
+                    "orderId", orderId,
+                    "storeId", order.getStoreId(),
+                    "customerId", customerId,
+                    "totalAmount", order.getTotalAmount(),
+                    "items", order.getItems(),
+                    "timestamp", System.currentTimeMillis());
+            orderEventProducer.publishStoreNotification(order.getStoreId(), orderId, storeNotification);
+            restaurantNotificationService.sendNewOrderNotification(order);
+            whatsAppNotificationService.sendNewOrderWhatsApp(order);
+        } else {
+            log.info("Skipping restaurant notifications for DRIVER_PROXY order {}", orderId);
+        }
 
         Map<String, Object> customerNotification = Map.of(
                 "eventType", "ORDER_CONFIRMED",
@@ -150,9 +164,7 @@ public class PaymentEventConsumer {
                 "timestamp", System.currentTimeMillis());
         orderEventProducer.publishCustomerNotification(customerId, orderId, customerNotification);
 
-        restaurantNotificationService.sendNewOrderNotification(order);
-        whatsAppNotificationService.sendNewOrderWhatsApp(order);
-        orderService.dispatchDriverShopsIfNeeded(order);
+        orderService.dispatchImmediateIfNeeded(order);
     }
 
     private void handlePaymentFailed(String orderId, String customerId, Map<String, Object> paymentEvent) {
