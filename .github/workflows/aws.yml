@@ -27,6 +27,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Set up JDK 26
+      uses: actions/setup-java@v4
+      with:
+        java-version: '26'
+        distribution: 'temurin'
+        cache: maven
+
+    # After setup-java so it does not wipe Packages credentials/repo entries.
     - name: Configure Maven for GitHub Packages
       run: |
         mkdir -p ~/.m2
@@ -68,16 +76,12 @@ jobs:
         sed -i "s/GITHUB_ACTOR_PLACEHOLDER/${{ github.actor }}/g" ~/.m2/settings.xml
         sed -i "s/GITHUB_TOKEN_PLACEHOLDER/${{ secrets.GITHUB_TOKEN }}/g" ~/.m2/settings.xml
 
-    - name: Set up JDK 26
-      uses: actions/setup-java@v4
-      with:
-        java-version: '26'
-        distribution: 'temurin'
-        cache: maven
-
-    # Vendored under .build so CI does not need cross-repo Packages ACL or a PAT.
+    # Install parent into ~/.m2 first: messaging's installed POM still references it,
+    # and relativePath does not apply when Maven reads the jar from the local repo.
     - name: Install vendored umameats-messaging
-      run: mvn -f .build/umameats-messaging/pom.xml clean install -DskipTests
+      run: |
+        mvn -f .build/umameats-api-parent/pom.xml clean install -N
+        mvn -f .build/umameats-messaging/pom.xml clean install -DskipTests
 
     - name: Build with Maven
       run: mvn clean package -DskipTests

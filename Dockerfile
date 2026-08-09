@@ -18,8 +18,11 @@ RUN if [ -n "$GITHUB_TOKEN" ]; then \
         > /root/.m2/settings.xml; \
     fi
 COPY . .
-# Install vendored messaging first so package resolution does not need Packages ACL.
-RUN ./mvnw -f .build/umameats-messaging/pom.xml clean install -DskipTests \
+# Install parent then messaging into the local repo so package resolution does not
+# need Packages ACL. Parent must be installed explicitly: messaging's installed POM
+# still references it and relativePath does not apply from ~/.m2.
+RUN ./mvnw -f .build/umameats-api-parent/pom.xml clean install -N \
+ && ./mvnw -f .build/umameats-messaging/pom.xml clean install -DskipTests \
  && ./mvnw clean package -DskipTests
 
 # Extract the jar into an app jar plus a lib directory.
