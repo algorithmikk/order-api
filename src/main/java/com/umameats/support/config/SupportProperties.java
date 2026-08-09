@@ -35,11 +35,16 @@ public class SupportProperties {
         private String secretName = "prod/llm-gateway";
         private String secretJsonKey = "LLM_GATEWAY_API_KEY";
 
-        /** Handles the great majority of turns. Cheap, fast, open weights. */
-        private String model = "deepseek/deepseek-v4-flash";
+        /**
+         * Default + complex turns for now: free OpenRouter Nemotron Nano.
+         * Agent-oriented tool use; swap escalation later when we add richer
+         * business knowledge and need a stronger model for hard cases.
+         * @see <a href="https://openrouter.ai/collections/free-models">OpenRouter free models</a>
+         */
+        private String model = "nvidia/nemotron-3-nano-30b-a3b:free";
 
-        /** Used when a turn is classified as complex. Stronger, still open weights. */
-        private String escalationModel = "z-ai/glm-5.2";
+        /** Same as {@link #model} until we promote complex turns to a larger free model. */
+        private String escalationModel = "nvidia/nemotron-3-nano-30b-a3b:free";
 
         private double temperature = 0.2;
         private int maxTokens = 900;

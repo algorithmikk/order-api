@@ -7,14 +7,20 @@ ARG GITHUB_ACTOR=algorithmikk
 RUN if [ -n "$GITHUB_TOKEN" ]; then \
       mkdir -p /root/.m2 && \
       printf '%s\n' \
-        '<settings><servers><server><id>github</id><username>'"$GITHUB_ACTOR"'</username><password>'"$GITHUB_TOKEN"'</password></server></servers>' \
-        '<profiles><profile><id>github-packages</id><repositories><repository><id>github</id>' \
-        '<url>https://maven.pkg.github.com/algorithmikk/umameats-api-parent</url></repository></repositories></profile></profiles>' \
+        '<settings><servers>' \
+        '<server><id>github</id><username>'"$GITHUB_ACTOR"'</username><password>'"$GITHUB_TOKEN"'</password></server>' \
+        '<server><id>github-messaging</id><username>'"$GITHUB_ACTOR"'</username><password>'"$GITHUB_TOKEN"'</password></server>' \
+        '</servers><profiles><profile><id>github-packages</id><repositories>' \
+        '<repository><id>github</id><url>https://maven.pkg.github.com/algorithmikk/umameats-api-parent</url></repository>' \
+        '<repository><id>github-messaging</id><url>https://maven.pkg.github.com/algorithmikk/umameats-messaging</url></repository>' \
+        '</repositories></profile></profiles>' \
         '<activeProfiles><activeProfile>github-packages</activeProfile></activeProfiles></settings>' \
         > /root/.m2/settings.xml; \
     fi
 COPY . .
-RUN ./mvnw clean package -DskipTests
+# Install vendored messaging first so package resolution does not need Packages ACL.
+RUN ./mvnw -f .build/umameats-messaging/pom.xml clean install -DskipTests \
+ && ./mvnw clean package -DskipTests
 
 # Extract the jar into an app jar plus a lib directory.
 #

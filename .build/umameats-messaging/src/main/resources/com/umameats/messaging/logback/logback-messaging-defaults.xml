@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Include from a service logback-spring.xml:
+  <include resource="com/umameats/messaging/logback/logback-messaging-defaults.xml"/>
+-->
+<included>
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>traceId</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>eventId</includeMdcKeyName>
+            <includeMdcKeyName>orderId</includeMdcKeyName>
+            <includeMdcKeyName>transactionId</includeMdcKeyName>
+        </encoder>
+    </appender>
+
+    <logger name="com.umameats.kafka" level="INFO"/>
+    <logger name="com.umameats.messaging" level="INFO"/>
+    <logger name="com.umameats.pos.kafka" level="INFO"/>
+    <logger name="com.umameats.delivery.kafka" level="INFO"/>
+    <logger name="org.springframework.kafka" level="WARN"/>
+    <logger name="org.apache.kafka" level="WARN"/>
+</included>
