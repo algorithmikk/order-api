@@ -546,7 +546,8 @@ public class OrderService {
     public Order getOrder(String orderId, String customerId) {
         Order order = orderRepository.findById(orderId, customerId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
-        return maybeAutoApproveShopping(order);
+        order = maybeAutoApproveShopping(order);
+        return ensureDeliveryPinPersisted(order);
     }
 
     public List<Order> getCustomerOrders(String customerId) {
@@ -666,6 +667,7 @@ public class OrderService {
         Order order = getOrder(orderId, customerId);
         OrderStatus oldStatus = order.getStatus();
         order.setStatus(newStatus);
+        ensureDeliveryPin(order);
         Order updatedOrder = orderRepository.save(order);
 
         // Publish order status change event
@@ -717,6 +719,7 @@ public class OrderService {
         // Update status
         OrderStatus oldStatus = order.getStatus();
         order.setStatus(newStatus);
+        ensureDeliveryPin(order);
         Order updatedOrder = orderRepository.save(order);
 
         log.info("Restaurant updated order {} status from {} to {}", orderId, oldStatus, newStatus);
@@ -800,6 +803,7 @@ public class OrderService {
         }
 
         order.setStatus(newStatus);
+        ensureDeliveryPin(order);
 
         if (restaurantLat != null) {
             order.setRestaurantLat(restaurantLat);
@@ -999,5 +1003,21 @@ public class OrderService {
         }
         int pin = DELIVERY_PIN_RANDOM.nextInt(10_000);
         order.setDeliveryPin(String.format("%04d", pin));
+    }
+
+    /**
+     * Persists a newly assigned PIN so legacy / ops-forced orders get one on first customer read.
+     */
+    private Order ensureDeliveryPinPersisted(Order order) {
+        if (order == null) {
+            return null;
+        }
+        String before = order.getDeliveryPin();
+        ensureDeliveryPin(order);
+        String after = order.getDeliveryPin();
+        if (after != null && (before == null || before.isBlank())) {
+            return orderRepository.save(order);
+        }
+        return order;
     }
 }
