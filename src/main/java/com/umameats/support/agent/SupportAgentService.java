@@ -86,47 +86,56 @@ public class SupportAgentService {
 
         SupportToolContext toolContext = new SupportToolContext(principal, thread);
         Set<String> toolsUsed = new LinkedHashSet<>();
-        StringBuilder answer = new StringBuilder();
+        String customerReply = "";
         String model = selectModel(userMessageBody, conversation.size());
 
         try {
             for (int iteration = 0; iteration < properties.getAgent().getMaxToolIterations(); iteration++) {
                 boolean lastIteration = iteration == properties.getAgent().getMaxToolIterations() - 1;
 
+                // Buffer the turn — do not stream mid-turn. Tool-calling turns often
+                // narrate internal planning; only a finished, tool-free turn is safe
+                // to show the customer.
+                StringBuilder turnBuffer = new StringBuilder();
                 LlmTurn turn = llmGatewayClient.streamTurn(
                         model,
                         conversation,
                         // On the final pass tools are withheld so the model has no
                         // option but to answer with what it already gathered.
                         lastIteration ? List.of() : toolRegistry.definitionsFor(principal.role()),
-                        delta -> {
-                            answer.append(delta);
-                            sink.content(delta);
-                        });
+                        turnBuffer::append);
 
-                if (!turn.hasToolCalls()) {
-                    break;
+                if (turn.hasToolCalls()) {
+                    // Keep tool-call history lean: planner prose in content trains
+                    // the next turn to keep narrating instead of answering.
+                    conversation.add(LlmMessage.assistantToolCalls("", turn.toolCalls()));
+                    for (LlmToolCall call : turn.toolCalls()) {
+                        conversation.add(runTool(call, toolContext, principal, toolsUsed, sink));
+                    }
+                    continue;
                 }
 
-                conversation.add(LlmMessage.assistantToolCalls(turn.content(), turn.toolCalls()));
-                for (LlmToolCall call : turn.toolCalls()) {
-                    conversation.add(runTool(call, toolContext, principal, toolsUsed, sink));
-                }
+                customerReply = CustomerFacingReply.sanitize(
+                        turn.content() != null && !turn.content().isBlank()
+                                ? turn.content()
+                                : turnBuffer.toString());
+                break;
             }
         } catch (Exception e) {
             log.error("Support turn failed for thread {}: {}", thread.getThreadId(), e.getMessage());
-            if (answer.isEmpty()) {
+            if (customerReply.isEmpty()) {
                 sink.failed("The assistant is unavailable right now. Please try again in a moment.");
                 return;
             }
         }
 
-        String body = answer.toString().trim();
+        String body = customerReply;
         if (body.isEmpty()) {
             body = "I could not put together an answer for that. Let me get a person to help you.";
-            sink.content(body);
-            escalate(thread, "Agent produced an empty response");
+            escalate(thread, "Agent produced an empty or unsafe response");
         }
+
+        sink.content(body);
 
         SupportMessage saved = persistMessage(
                 thread.getThreadId(),
@@ -184,9 +193,19 @@ public class SupportAgentService {
         return messageRepository
                 .findRecent(thread.getThreadId(), properties.getAgent().getHistoryWindow())
                 .stream()
-                .map(message -> SENDER_USER.equals(message.getSender())
-                        ? LlmMessage.user(message.getBody())
-                        : LlmMessage.assistant(message.getBody()))
+                .map(message -> {
+                    if (SENDER_USER.equals(message.getSender())) {
+                        return LlmMessage.user(message.getBody());
+                    }
+                    String body = CustomerFacingReply.sanitize(message.getBody());
+                    // Drop prior turns that were pure model narration so they cannot
+                    // teach the next reply to keep thinking out loud.
+                    if (body.isEmpty()) {
+                        return null;
+                    }
+                    return LlmMessage.assistant(body);
+                })
+                .filter(message -> message != null)
                 .toList();
     }
 

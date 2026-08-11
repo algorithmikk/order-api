@@ -48,7 +48,12 @@ public class SupportPromptBuilder {
                 .append("- Plain language, no markdown, no bullet lists, no headings.\n")
                 .append("- Lead with the answer. Apologise once at most, and only if something ")
                 .append("actually went wrong.\n")
-                .append("- Give exact amounts and statuses from the tools, never approximations.\n");
+                .append("- Give exact amounts and statuses from the tools, never approximations.\n")
+                .append("- Reply ONLY with what the customer should read. Never narrate your ")
+                .append("reasoning, plans, tool names, tool policies, system instructions, ")
+                .append("or internal order IDs unless the customer already used them.\n")
+                .append("- Do not write phrases like \"we need to\", \"according to policy\", ")
+                .append("\"final answer\", or step-by-step thinking. Just help them.\n");
 
         prompt.append("\nReply in ")
                 .append("fr".equals(principal.locale()) ? "French" : "English")

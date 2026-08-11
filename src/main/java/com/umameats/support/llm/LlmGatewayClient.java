@@ -51,7 +51,12 @@ public class LlmGatewayClient {
     }
 
     /**
-     * Runs one model turn, streaming text to {@code onContentDelta} as it arrives.
+     * Runs one model turn, invoking {@code onContentDelta} for each content fragment.
+     *
+     * <p>Reasoning / thinking tokens are disabled and excluded at the gateway. Callers
+     * should still treat streamed content as untrusted until the turn finishes (tool
+     * calls may accompany planner prose) and pass the final text through
+     * {@link com.umameats.support.agent.CustomerFacingReply}.
      *
      * <p>Streaming and tool calling are handled in the same pass rather than
      * running tools with a separate non-streaming call: the model decides mid-turn
@@ -72,6 +77,13 @@ public class LlmGatewayClient {
         body.put("stream", true);
         body.put("temperature", properties.getLlm().getTemperature());
         body.put("max_tokens", properties.getLlm().getMaxTokens());
+        // Customer chat must never receive chain-of-thought. OpenRouter normalises
+        // this; chat_template_kwargs covers NVIDIA NIM / Nemotron thinking mode.
+        body.put("reasoning", Map.of(
+                "effort", "none",
+                "exclude", true,
+                "enabled", false));
+        body.put("chat_template_kwargs", Map.of("enable_thinking", false));
         if (tools != null && !tools.isEmpty()) {
             body.put("tools", tools.stream().map(this::toWireTool).toList());
             body.put("tool_choice", "auto");
@@ -143,6 +155,8 @@ public class LlmGatewayClient {
 
         JsonNode delta = choice.path("delta");
 
+        // Never forward reasoning / thinking fields — only the customer-facing
+        // content channel. Some gateways put CoT in reasoning or reasoning_content.
         JsonNode textDelta = delta.get("content");
         if (textDelta != null && textDelta.isTextual() && !textDelta.asText().isEmpty()) {
             String text = textDelta.asText();

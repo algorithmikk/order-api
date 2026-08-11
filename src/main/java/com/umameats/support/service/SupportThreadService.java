@@ -2,6 +2,7 @@ package com.umameats.support.service;
 
 import com.umameats.chat.model.ChatPrincipal;
 import com.umameats.chat.security.ChatForbiddenException;
+import com.umameats.support.agent.CustomerFacingReply;
 import com.umameats.support.model.SupportMessage;
 import com.umameats.support.model.SupportThread;
 import com.umameats.support.model.SupportThreadState;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -67,7 +69,28 @@ public class SupportThreadService {
     }
 
     public List<SupportMessage> listMessages(SupportThread thread) {
-        return messageRepository.findRecent(thread.getThreadId(), MESSAGE_PAGE_SIZE);
+        return messageRepository.findRecent(thread.getThreadId(), MESSAGE_PAGE_SIZE).stream()
+                .map(this::forCustomer)
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    /**
+     * Hides agent turns that were pure model narration (pre-fix leaks) so the
+     * conversation history reads naturally when the screen reopens.
+     */
+    private Optional<SupportMessage> forCustomer(SupportMessage message) {
+        if (!"AGENT".equals(message.getSender())) {
+            return Optional.of(message);
+        }
+        String safe = CustomerFacingReply.sanitize(message.getBody());
+        if (safe.isEmpty()) {
+            return Optional.empty();
+        }
+        if (!safe.equals(message.getBody())) {
+            message.setBody(safe);
+        }
+        return Optional.of(message);
     }
 
     public SupportThread escalate(SupportThread thread, String reason) {
