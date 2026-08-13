@@ -1006,18 +1006,25 @@ public class OrderService {
     }
 
     /**
-     * Persists a newly assigned PIN so legacy / ops-forced orders get one on first customer read.
+     * Backfills a PIN on legacy orders with a conditional UpdateItem only.
+     * Never putItem the full order on GET — that races with driver accept and
+     * can revert status to CONFIRMED and mint a second PIN.
      */
     private Order ensureDeliveryPinPersisted(Order order) {
         if (order == null) {
             return null;
         }
-        String before = order.getDeliveryPin();
-        ensureDeliveryPin(order);
-        String after = order.getDeliveryPin();
-        if (after != null && (before == null || before.isBlank())) {
-            return orderRepository.save(order);
+        String existing = order.getDeliveryPin();
+        if (existing != null && !existing.isBlank()) {
+            return order;
         }
+        ensureDeliveryPin(order);
+        String generated = order.getDeliveryPin();
+        if (generated == null || generated.isBlank() || order.getOrderId() == null) {
+            return order;
+        }
+        String persisted = orderRepository.assignDeliveryPinIfAbsent(order.getOrderId(), generated);
+        order.setDeliveryPin(persisted);
         return order;
     }
 }

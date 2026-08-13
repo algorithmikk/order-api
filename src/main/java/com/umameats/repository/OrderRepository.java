@@ -1,6 +1,7 @@
 package com.umameats.repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -16,16 +17,23 @@ import software.amazon.awssdk.enhanced.dynamodb.Key;
 import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional;
 import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 @Repository
 public class OrderRepository {
     private static final String TABLE_NAME = "umameats-orders";
 
     private final DynamoDbEnhancedClient enhancedClient;
+    private final DynamoDbClient dynamoDbClient;
 
-    public OrderRepository(DynamoDbEnhancedClient enhancedClient) {
+    public OrderRepository(DynamoDbEnhancedClient enhancedClient, DynamoDbClient dynamoDbClient) {
         this.enhancedClient = enhancedClient;
+        this.dynamoDbClient = dynamoDbClient;
     }
 
     private DynamoDbTable<Order> getTable() {
@@ -35,6 +43,35 @@ public class OrderRepository {
     public Order save(Order order) {
         getTable().putItem(order);
         return order;
+    }
+
+    /**
+     * Sets deliveryPin with a conditional UpdateItem so a customer GET never
+     * putItem-clobbers a concurrent driver accept (status, assignment, etc.).
+     *
+     * @return the PIN that won: the one we wrote, or the PIN already on the item
+     */
+    public String assignDeliveryPinIfAbsent(String orderId, String pin) {
+        try {
+            UpdateItemResponse response = dynamoDbClient.updateItem(UpdateItemRequest.builder()
+                    .tableName(TABLE_NAME)
+                    .key(Map.of("orderId", AttributeValue.fromS(orderId)))
+                    .updateExpression("SET deliveryPin = :pin")
+                    .conditionExpression("attribute_not_exists(deliveryPin) OR deliveryPin = :empty")
+                    .expressionAttributeValues(Map.of(
+                            ":pin", AttributeValue.fromS(pin),
+                            ":empty", AttributeValue.fromS("")))
+                    .returnValues(ReturnValue.ALL_NEW)
+                    .build());
+            AttributeValue stored = response.attributes().get("deliveryPin");
+            return stored != null && stored.s() != null ? stored.s() : pin;
+        } catch (ConditionalCheckFailedException e) {
+            Order existing = getTable().getItem(Key.builder().partitionValue(orderId).build());
+            if (existing != null && existing.getDeliveryPin() != null && !existing.getDeliveryPin().isBlank()) {
+                return existing.getDeliveryPin();
+            }
+            return pin;
+        }
     }
 
     public Optional<Order> findById(String orderId, String customerId) {
