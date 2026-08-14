@@ -23,6 +23,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.CommonErrorHandler;
@@ -36,7 +37,6 @@ import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 
 @AutoConfiguration(after = KafkaAutoConfiguration.class)
 @EnableConfigurationProperties(MessagingProperties.class)
-@EnableScheduling
 @ConditionalOnProperty(prefix = "umameats.messaging", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class MessagingAutoConfiguration {
 
@@ -116,25 +116,26 @@ public class MessagingAutoConfiguration {
                 enhancedClient, objectMapper, properties.getOutboxTable(), properties.getOutboxTtlDays());
     }
 
-    /**
-     * Registered on the outer auto-config (not a nested {@code @ConditionalOnBean} config) so the
-     * publisher is not skipped when {@link OutboxWriter} is defined in the same configuration class.
-     */
-    @Bean
+    @Configuration
+    @EnableScheduling
     @ConditionalOnBean(OutboxWriter.class)
     @ConditionalOnProperty(prefix = "umameats.messaging", name = "outbox-enabled", havingValue = "true")
-    @ConditionalOnMissingBean
-    public OutboxPublisher outboxPublisher(
-            OutboxWriter outboxWriter,
-            KafkaProducerSupport kafkaProducerSupport,
-            MeterRegistry meterRegistry,
-            MessagingProperties properties) {
-        return new OutboxPublisher(
-                outboxWriter,
-                kafkaProducerSupport,
-                meterRegistry,
-                properties.getOutboxMaxAttempts(),
-                properties.getOutboxBatchSize());
+    static class OutboxSchedulingConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public OutboxPublisher outboxPublisher(
+                OutboxWriter outboxWriter,
+                KafkaProducerSupport kafkaProducerSupport,
+                MeterRegistry meterRegistry,
+                MessagingProperties properties) {
+            return new OutboxPublisher(
+                    outboxWriter,
+                    kafkaProducerSupport,
+                    meterRegistry,
+                    properties.getOutboxMaxAttempts(),
+                    properties.getOutboxBatchSize());
+        }
     }
 
     @Bean

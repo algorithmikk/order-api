@@ -89,7 +89,24 @@ public class KafkaProducerSupport {
             record.headers().add(header(MessagingHeaders.EVENT_TYPE, eventType));
         }
 
-        CompletableFuture<SendResult<String, String>> future = kafkaTemplate.send(record);
+        CompletableFuture<SendResult<String, String>> future;
+        try {
+            future = kafkaTemplate.send(record);
+        } catch (RuntimeException e) {
+            // send() blocks on metadata and throws synchronously when the broker is
+            // unreachable. Fire-and-forget callers must not have their own transaction
+            // rolled back by an event publish, so surface it through the future instead.
+            meterRegistry.counter("kafka.produce.failure", "topic", topic, "reason", "send").increment();
+            log.error(
+                    "Failed to publish Kafka event topic={} key={} eventId={} eventType={} traceId={}",
+                    topic,
+                    key,
+                    resolvedEventId,
+                    eventType,
+                    traceId,
+                    e);
+            return CompletableFuture.failedFuture(e);
+        }
         future.whenComplete((result, ex) -> {
             if (ex == null) {
                 meterRegistry.counter("kafka.produce.success", "topic", topic).increment();
