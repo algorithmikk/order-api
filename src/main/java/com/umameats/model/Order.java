@@ -42,6 +42,8 @@ public class Order {
     private Double restaurantLat;
     private Double restaurantLng;
     private Long deliveryFee;
+    /** What the customer is actually charged for delivery (may be $0 with membership). Driver payout uses `deliveryFee`. */
+    private Long customerDeliveryFee;
     private Long tip;
     private String assignedDriverId;
     private String assignedDriverName;

@@ -164,9 +164,11 @@ public class OrderService {
         boolean foundingPerk = paymentApiClient.hasFoundingDeliveryPerk(order.getCustomerId());
         Long frontendDeliveryFee = order.getDeliveryFee();
         long deliveryFee;
+        long customerDeliveryFee;
         if (foundingPerk) {
-            deliveryFee = 0L;
-            log.info("Founding member perk applied — delivery fee $0 for customer {}", order.getCustomerId());
+            customerDeliveryFee = 0L;
+            deliveryFee = frontendDeliveryFee != null && frontendDeliveryFee > 0 ? frontendDeliveryFee : pricingService.calculateDeliveryFeeFromSubtotal(subtotal);
+            log.info("Founding member perk applied — delivery fee $0 for customer {}, driver payout: {} cents", order.getCustomerId(), deliveryFee);
         } else if (frontendDeliveryFee != null && frontendDeliveryFee > 0) {
             // Validate frontend delivery fee is within acceptable range
             long calculatedFee = pricingService.calculateDeliveryFeeFromSubtotal(subtotal);
@@ -179,11 +181,14 @@ public class OrderService {
                 log.warn("Frontend delivery fee {} cents out of range, using calculated: {} cents",
                         frontendDeliveryFee, calculatedFee);
             }
+            customerDeliveryFee = deliveryFee;
         } else {
             deliveryFee = pricingService.calculateDeliveryFeeFromSubtotal(subtotal);
+            customerDeliveryFee = deliveryFee;
             log.info("Calculated delivery fee: {} cents", deliveryFee);
         }
         order.setDeliveryFee(deliveryFee);
+        order.setCustomerDeliveryFee(customerDeliveryFee);
 
         // Calculate service fee
         long serviceFee = pricingService.calculateServiceFee(subtotal);
@@ -204,18 +209,19 @@ public class OrderService {
             country = order.getDeliveryAddress().getCountry();
             province = order.getDeliveryAddress().getState();
         }
-        TaxService.TaxResult taxResult = taxService.calculateTax(subtotal, deliveryFee, serviceFee, country, province);
+        TaxService.TaxResult taxResult = taxService.calculateTax(subtotal, customerDeliveryFee, serviceFee, country, province);
         order.setTaxAmount(taxResult.getTotalTax());
         order.setTaxRate(taxResult.getTaxRate());
         order.setTaxBreakdown(taxResult.toBreakdownJson());
 
         // Calculate total amount (server-side to prevent tampering)
-        long totalAmount = subtotal + deliveryFee + serviceFee + tip + taxResult.getTotalTax();
+        long totalAmount = subtotal + customerDeliveryFee + serviceFee + tip + taxResult.getTotalTax();
         order.setTotalAmount(totalAmount);
 
         log.info("=== PRICING CALCULATED ===");
         log.info("  Subtotal: {} cents", subtotal);
-        log.info("  Delivery Fee: {} cents", deliveryFee);
+        log.info("  Delivery Fee (customer): {} cents", customerDeliveryFee);
+        log.info("  Delivery Fee (driver payout): {} cents", deliveryFee);
         log.info("  Service Fee: {} cents", serviceFee);
         log.info("  Tip: {} cents", tip);
         log.info("  Tax: {} cents ({})", taxResult.getTotalTax(), taxResult.getBreakdown());

@@ -198,14 +198,16 @@ public class OpsOrderService {
 
         long subtotal = pricingService.calculateSubtotal(items);
         long deliveryFee = pricingService.calculateDeliveryFeeFromSubtotal(subtotal);
+        long customerDeliveryFee = deliveryFee;
         long serviceFee = pricingService.calculateServiceFee(subtotal);
         long tip = pricingService.validateTip(tipCents);
         long platformFee = pricingService.calculatePlatformFee(subtotal);
-        TaxService.TaxResult taxResult = taxService.calculateTax(subtotal, deliveryFee, serviceFee, "CA", "ON");
-        long totalAmount = subtotal + deliveryFee + serviceFee + tip + taxResult.getTotalTax();
+        TaxService.TaxResult taxResult = taxService.calculateTax(subtotal, customerDeliveryFee, serviceFee, "CA", "ON");
+        long totalAmount = subtotal + customerDeliveryFee + serviceFee + tip + taxResult.getTotalTax();
 
         order.setSubtotal(subtotal);
         order.setDeliveryFee(deliveryFee);
+        order.setCustomerDeliveryFee(customerDeliveryFee);
         order.setServiceFee(serviceFee);
         order.setTip(tip);
         order.setPlatformFee(platformFee);
