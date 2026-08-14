@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.umameats.service.LocalDateTimeAttributeConverter;
 
 import lombok.Data;
@@ -102,7 +103,14 @@ public class Order {
         return status;
     }
 
+    /**
+     * Stored naive but always generated in UTC, so serialize with an explicit
+     * {@code Z}. Without it JavaScript clients parse the value as local time and
+     * render every order shifted by the viewer's UTC offset. Millisecond
+     * precision keeps the string within what {@code Date.parse} accepts.
+     */
     @DynamoDbConvertedBy(LocalDateTimeAttributeConverter.class)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     public LocalDateTime getOrderDate() {
         return orderDate;
     }
