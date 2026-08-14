@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 
+import com.umameats.model.DeliveryPinAttributeConverter;
 import com.umameats.model.Order;
 import com.umameats.model.OrderStatus;
 
@@ -20,6 +21,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.QueryEnhancedRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
@@ -63,14 +65,15 @@ public class OrderRepository {
                             ":empty", AttributeValue.fromS("")))
                     .returnValues(ReturnValue.ALL_NEW)
                     .build());
-            AttributeValue stored = response.attributes().get("deliveryPin");
-            return stored != null && stored.s() != null ? stored.s() : pin;
+            return DeliveryPinAttributeConverter.fromAttribute(response.attributes().get("deliveryPin"));
         } catch (ConditionalCheckFailedException e) {
-            Order existing = getTable().getItem(Key.builder().partitionValue(orderId).build());
-            if (existing != null && existing.getDeliveryPin() != null && !existing.getDeliveryPin().isBlank()) {
-                return existing.getDeliveryPin();
-            }
-            return pin;
+            GetItemResponse existing = dynamoDbClient.getItem(r -> r
+                    .tableName(TABLE_NAME)
+                    .key(Map.of("orderId", AttributeValue.fromS(orderId)))
+                    .projectionExpression("deliveryPin"));
+            String stored = DeliveryPinAttributeConverter.fromAttribute(
+                    existing.item() != null ? existing.item().get("deliveryPin") : null);
+            return !stored.isEmpty() ? stored : pin;
         }
     }
 

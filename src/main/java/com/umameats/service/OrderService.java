@@ -2,6 +2,7 @@ package com.umameats.service;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import com.umameats.kafka.OrderEventProducer;
 
 import com.umameats.model.DeliveryAddress;
 import com.umameats.model.DeliveryEvent;
+import com.umameats.model.DeliveryPinAttributeConverter;
 import com.umameats.model.EventRequest;
 import com.umameats.model.FulfillmentMode;
 import com.umameats.model.Order;
@@ -551,7 +553,9 @@ public class OrderService {
     }
 
     public List<Order> getCustomerOrders(String customerId) {
-        return orderRepository.findByCustomerId(customerId);
+        return orderRepository.findByCustomerId(customerId).stream()
+                .sorted(Comparator.comparing(Order::getOrderDate, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
     }
 
     public List<Order> getStoreOrders(String storeId, String status) {
@@ -1002,7 +1006,7 @@ public class OrderService {
             return;
         }
         int pin = DELIVERY_PIN_RANDOM.nextInt(10_000);
-        order.setDeliveryPin(String.format("%04d", pin));
+        order.setDeliveryPin(DeliveryPinAttributeConverter.canonicalize(String.format("%04d", pin)));
     }
 
     /**
@@ -1024,7 +1028,10 @@ public class OrderService {
             return order;
         }
         String persisted = orderRepository.assignDeliveryPinIfAbsent(order.getOrderId(), generated);
-        order.setDeliveryPin(persisted);
+        if (persisted == null || persisted.isBlank()) {
+            persisted = generated;
+        }
+        order.setDeliveryPin(DeliveryPinAttributeConverter.canonicalize(persisted));
         return order;
     }
 }

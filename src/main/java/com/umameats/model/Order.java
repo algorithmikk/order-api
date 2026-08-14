@@ -72,6 +72,11 @@ public class Order {
     private String deliveryPin;
     private Long deliveredAt;
 
+    @DynamoDbConvertedBy(DeliveryPinAttributeConverter.class)
+    public String getDeliveryPin() {
+        return deliveryPin;
+    }
+
     @DynamoDbPartitionKey
     public String getOrderId() {
         return orderId;
