@@ -1,13 +1,11 @@
 package com.umameats.kafka;
 
 import com.umameats.messaging.KafkaProducerSupport;
-import com.umameats.messaging.outbox.OutboxWriter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * Publishes order lifecycle events. Uses transactional outbox when enabled.
+ * Publishes order lifecycle events straight to Kafka.
  */
 @Slf4j
 @Service
@@ -19,13 +17,9 @@ public class OrderEventProducer {
     public static final String TOPIC_CUSTOMER_NOTIFICATIONS = "umameats.customer.notifications";
 
     private final KafkaProducerSupport kafkaProducerSupport;
-    private final OutboxWriter outboxWriter;
 
-    public OrderEventProducer(
-            KafkaProducerSupport kafkaProducerSupport,
-            @Autowired(required = false) OutboxWriter outboxWriter) {
+    public OrderEventProducer(KafkaProducerSupport kafkaProducerSupport) {
         this.kafkaProducerSupport = kafkaProducerSupport;
-        this.outboxWriter = outboxWriter;
     }
 
     public void publishOrderCreated(String orderId, Object orderData) {
@@ -49,10 +43,6 @@ public class OrderEventProducer {
     }
 
     private void publish(String topic, String key, Object payload, String eventType) {
-        if (outboxWriter != null) {
-            outboxWriter.enqueue(topic, key, payload, eventType);
-            return;
-        }
         kafkaProducerSupport.sendJson(topic, key, payload, eventType);
     }
 }

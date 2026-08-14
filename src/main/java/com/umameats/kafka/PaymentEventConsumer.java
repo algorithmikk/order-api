@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umameats.messaging.TraceContext;
-import com.umameats.messaging.consumer.IdempotentEventProcessor;
 import com.umameats.model.FulfillmentMode;
 import com.umameats.model.Order;
 import com.umameats.model.OrderStatus;
@@ -46,9 +45,6 @@ public class PaymentEventConsumer {
     @org.springframework.context.annotation.Lazy
     private com.umameats.service.OrderService orderService;
 
-    @Autowired(required = false)
-    private IdempotentEventProcessor idempotentEventProcessor;
-
     @KafkaListener(topics = "umameats.payment.events", groupId = CONSUMER_GROUP)
     public void consumePaymentEvent(
             @Payload String eventJson,
@@ -70,18 +66,12 @@ public class PaymentEventConsumer {
 
         log.info("Received payment event: type={}, orderId={}, customerId={}", eventType, orderId, customerId);
 
-        Runnable work = () -> {
-            if ("PAYMENT_SUCCESS".equals(eventType)) {
-                handlePaymentSuccess(orderId, customerId, paymentEvent);
-            } else if ("PAYMENT_FAILED".equals(eventType)) {
-                handlePaymentFailed(orderId, customerId, paymentEvent);
-            }
-        };
-
-        if (idempotentEventProcessor != null) {
-            idempotentEventProcessor.process(CONSUMER_GROUP, "umameats.payment.events", paymentEvent, orderId, payload -> work.run());
-        } else {
-            work.run();
+        // Replays are absorbed by the status guard in handlePaymentSuccess, which
+        // skips any order already past payment.
+        if ("PAYMENT_SUCCESS".equals(eventType)) {
+            handlePaymentSuccess(orderId, customerId, paymentEvent);
+        } else if ("PAYMENT_FAILED".equals(eventType)) {
+            handlePaymentFailed(orderId, customerId, paymentEvent);
         }
     }
 

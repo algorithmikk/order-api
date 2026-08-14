@@ -2,13 +2,7 @@ package com.umameats.messaging.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umameats.messaging.KafkaProducerSupport;
-import com.umameats.messaging.consumer.IdempotentEventProcessor;
-import com.umameats.messaging.idempotency.DynamoIdempotencyStore;
-import com.umameats.messaging.idempotency.IdempotencyStore;
-import com.umameats.messaging.idempotency.InMemoryIdempotencyStore;
 import com.umameats.messaging.interceptor.TraceRecordInterceptor;
-import com.umameats.messaging.outbox.OutboxPublisher;
-import com.umameats.messaging.outbox.OutboxWriter;
 import com.umameats.messaging.web.TraceIdFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -23,7 +17,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.kafka.autoconfigure.KafkaAutoConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ContainerCustomizer;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.CommonErrorHandler;
@@ -31,9 +24,7 @@ import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.util.backoff.ExponentialBackOff;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 
 @AutoConfiguration(after = KafkaAutoConfiguration.class)
 @EnableConfigurationProperties(MessagingProperties.class)
@@ -69,73 +60,6 @@ public class MessagingAutoConfiguration {
     @ConditionalOnMissingBean
     public TraceRecordInterceptor traceRecordInterceptor() {
         return new TraceRecordInterceptor();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(IdempotencyStore.class)
-    @ConditionalOnBean(DynamoDbEnhancedClient.class)
-    @ConditionalOnProperty(
-            prefix = "umameats.messaging",
-            name = "idempotency-enabled",
-            havingValue = "true",
-            matchIfMissing = true)
-    public IdempotencyStore dynamoIdempotencyStore(
-            DynamoDbEnhancedClient enhancedClient, MessagingProperties properties) {
-        return new DynamoIdempotencyStore(
-                enhancedClient, properties.getProcessedEventsTable(), properties.getIdempotencyTtlDays());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean({IdempotencyStore.class, DynamoDbEnhancedClient.class})
-    @ConditionalOnProperty(
-            prefix = "umameats.messaging",
-            name = "idempotency-enabled",
-            havingValue = "true",
-            matchIfMissing = true)
-    public IdempotencyStore inMemoryIdempotencyStore() {
-        return new InMemoryIdempotencyStore();
-    }
-
-    @Bean
-    @ConditionalOnBean(IdempotencyStore.class)
-    @ConditionalOnMissingBean(IdempotentEventProcessor.class)
-    public IdempotentEventProcessor idempotentEventProcessor(
-            IdempotencyStore idempotencyStore, MeterRegistry meterRegistry) {
-        return new IdempotentEventProcessor(idempotencyStore, meterRegistry);
-    }
-
-    @Bean
-    @ConditionalOnBean(DynamoDbEnhancedClient.class)
-    @ConditionalOnProperty(prefix = "umameats.messaging", name = "outbox-enabled", havingValue = "true")
-    @ConditionalOnMissingBean
-    public OutboxWriter outboxWriter(
-            DynamoDbEnhancedClient enhancedClient,
-            ObjectMapper objectMapper,
-            MessagingProperties properties) {
-        return new OutboxWriter(
-                enhancedClient, objectMapper, properties.getOutboxTable(), properties.getOutboxTtlDays());
-    }
-
-    @Configuration
-    @EnableScheduling
-    @ConditionalOnBean(OutboxWriter.class)
-    @ConditionalOnProperty(prefix = "umameats.messaging", name = "outbox-enabled", havingValue = "true")
-    static class OutboxSchedulingConfiguration {
-
-        @Bean
-        @ConditionalOnMissingBean
-        public OutboxPublisher outboxPublisher(
-                OutboxWriter outboxWriter,
-                KafkaProducerSupport kafkaProducerSupport,
-                MeterRegistry meterRegistry,
-                MessagingProperties properties) {
-            return new OutboxPublisher(
-                    outboxWriter,
-                    kafkaProducerSupport,
-                    meterRegistry,
-                    properties.getOutboxMaxAttempts(),
-                    properties.getOutboxBatchSize());
-        }
     }
 
     @Bean

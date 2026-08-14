@@ -11,8 +11,8 @@ import org.springframework.context.annotation.Configuration;
  * jackson-databind is on the classpath.
  *
  * <p>This mapper serves the messaging layer, so it needs java.time support:
- * the outbox writer converts entities carrying {@code LocalDateTime} before
- * enqueueing, and a bare mapper rejects those outright.
+ * order events carry the {@code Order} entity with its {@code LocalDateTime}
+ * orderDate, and a bare mapper rejects those outright.
  */
 @Configuration
 public class JacksonConfig {

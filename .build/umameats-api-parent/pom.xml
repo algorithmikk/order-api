@@ -13,7 +13,7 @@
 
     <groupId>com.umameats</groupId>
     <artifactId>umameats-api-parent</artifactId>
-    <version>2.0.0</version>
+    <version>2.0.1</version>
     <packaging>pom</packaging>
     <name>UmaMeats API Parent</name>
     <description>Shared parent POM for UmaMeats Spring Boot APIs</description>
@@ -36,7 +36,7 @@
             <dependency>
                 <groupId>com.umameats</groupId>
                 <artifactId>umameats-messaging</artifactId>
-                <version>2.0.1</version>
+                <version>2.1.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

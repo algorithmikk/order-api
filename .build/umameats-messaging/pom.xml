@@ -7,14 +7,14 @@
     <parent>
         <groupId>com.umameats</groupId>
         <artifactId>umameats-api-parent</artifactId>
-        <version>2.0.0</version>
+        <version>2.0.1</version>
         <relativePath>../umameats-api-parent/pom.xml</relativePath>
     </parent>
 
     <artifactId>umameats-messaging</artifactId>
-    <version>2.0.1</version>
+    <version>2.1.0</version>
     <name>UmaMeats Messaging</name>
-    <description>Shared Kafka resilience, outbox, idempotency, and tracing for UmaMeats APIs</description>
+    <description>Shared Kafka produce, resilience, and tracing for UmaMeats APIs</description>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -51,11 +51,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>dynamodb-enhanced</artifactId>
-            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
