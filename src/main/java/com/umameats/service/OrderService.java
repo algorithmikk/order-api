@@ -976,21 +976,7 @@ public class OrderService {
     }
 
     private static String defaultFulfillmentMode(String merchantType, String explicit, String storeStatus) {
-        if (FulfillmentMode.DRIVER_SHOPS.equals(explicit)
-                || FulfillmentMode.MERCHANT_PREPARES.equals(explicit)
-                || FulfillmentMode.DRIVER_PROXY.equals(explicit)) {
-            return explicit;
-        }
-        boolean grocery = switch (merchantType) {
-            case "MERCHANT_TYPE_GROCERY",
-                 "MERCHANT_TYPE_CONVENIENCE",
-                 "MERCHANT_TYPE_SPECIALTY_FOOD" -> true;
-            default -> false;
-        };
-        if ("PROXY".equalsIgnoreCase(storeStatus) && !grocery) {
-            return FulfillmentMode.DRIVER_PROXY;
-        }
-        return grocery ? FulfillmentMode.DRIVER_SHOPS : FulfillmentMode.MERCHANT_PREPARES;
+        return FulfillmentMode.resolve(merchantType, explicit, storeStatus);
     }
 
     /**
