@@ -75,6 +75,10 @@ public class OutboxWriter {
                     record.getEventId());
             return record;
         } catch (Exception e) {
+            // Callers surface only the wrapper's message, so log the cause here or
+            // the real failure never reaches CloudWatch.
+            log.error("Failed to enqueue outbox event topic={} key={} eventType={}",
+                    topic, messageKey, eventType, e);
             throw new IllegalStateException("Failed to enqueue outbox event topic=" + topic, e);
         }
     }
