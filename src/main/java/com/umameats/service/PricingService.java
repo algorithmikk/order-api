@@ -13,16 +13,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PricingService {
 
-     // Delivery fee constants (in cents)
+    // Delivery fee constants (in cents)
     private static final long DELIVERY_BASE_FEE_CENTS = 299L;  // $2.99
     private static final long DELIVERY_PER_KM_CENTS = 50L;     // $0.50 per km
     private static final double FREE_DISTANCE_KM = 2.0;         // First 2km free
-    private static final long DELIVERY_MIN_CENTS = 299L;        // $2.99 minimum
+    private static final long DELIVERY_MIN_CENTS = 400L;        // $4.00 minimum (guaranteed driver base payout)
     private static final long DELIVERY_MAX_CENTS = 999L;        // $9.99 maximum
-    private static final long DRIVER_BASE_PAYOUT_CENTS = 400L;  // $4.00 guaranteed base for driver
 
-     // Service fee constants (in cents) - Guaranteed fixed fee to cover driver base pay
-    private static final long SERVICE_FEE_FIXED_CENTS = 400L;   // $4.00 fixed fee
+    // Service fee constants (in cents)
+    private static final double SERVICE_FEE_PERCENTAGE = 0.05;  // 5% of subtotal
+    private static final long SERVICE_FEE_MIN_CENTS = 99L;      // $0.99 minimum
+    private static final long SERVICE_FEE_MAX_CENTS = 499L;     // $4.99 maximum
 
     // Platform fee constants
     private static final double PLATFORM_FEE_PERCENTAGE = 0.15; // 15% of subtotal
@@ -48,7 +49,7 @@ public class PricingService {
         long distanceFee = Math.round(chargeableDistance * DELIVERY_PER_KM_CENTS);
         long totalFee = DELIVERY_BASE_FEE_CENTS + distanceFee;
 
-        // Apply min/max bounds
+        // Apply min/max bounds (also enforces $4.00 guaranteed minimum driver payout)
         long finalFee = Math.max(DELIVERY_MIN_CENTS, Math.min(DELIVERY_MAX_CENTS, totalFee));
 
         log.info("Calculated delivery fee: distance={}km, chargeableDistance={}km, fee={} cents",
@@ -66,11 +67,11 @@ public class PricingService {
      */
     public long calculateDeliveryFeeFromSubtotal(Long subtotalCents) {
         if (subtotalCents == null || subtotalCents <= 0) {
-            return DRIVER_BASE_PAYOUT_CENTS;
+            return DELIVERY_MIN_CENTS;
         }
 
         long fee = Math.round(subtotalCents * 0.10);
-        long finalFee = Math.max(DRIVER_BASE_PAYOUT_CENTS, Math.min(DELIVERY_MAX_CENTS, fee));
+        long finalFee = Math.max(DELIVERY_MIN_CENTS, Math.min(DELIVERY_MAX_CENTS, fee));
 
         log.info("Calculated delivery fee from subtotal: subtotal={} cents, fee={} cents",
                 subtotalCents, finalFee);
@@ -80,14 +81,19 @@ public class PricingService {
 
     /**
      * Calculate service fee (platform fee charged to customer).
-     * Formula: Fixed $4.00 to guarantee a $4.00 base payout for the driver.
+     * Formula: 5% of subtotal, min $0.99, max $4.99
      *
-     * @param subtotalCents Order subtotal in cents (unused in calculation, kept for API signature stability)
-     * @return Service fee in cents (always $4.00)
+     * @param subtotalCents Order subtotal in cents
+     * @return Service fee in cents
      */
     public long calculateServiceFee(Long subtotalCents) {
-        log.info("Calculated fixed service fee: $4.00 (covers driver base pay)");
-        return SERVICE_FEE_FIXED_CENTS;
+        if (subtotalCents == null || subtotalCents <= 0) {
+            return SERVICE_FEE_MIN_CENTS;
+        }
+        long fee = Math.round(subtotalCents * SERVICE_FEE_PERCENTAGE);
+        long finalFee = Math.max(SERVICE_FEE_MIN_CENTS, Math.min(SERVICE_FEE_MAX_CENTS, fee));
+        log.info("Calculated service fee: subtotal={} cents, fee={} cents", subtotalCents, finalFee);
+        return finalFee;
     }
 
     /**
