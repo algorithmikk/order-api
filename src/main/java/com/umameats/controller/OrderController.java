@@ -88,6 +88,13 @@ public class OrderController {
         }
     }
 
+    @GetMapping("/reorder-suggestions")
+    public ResponseEntity<?> reorderSuggestions(
+            @RequestHeader("X-Customer-Id") String customerId
+    ) {
+        return ResponseEntity.ok(orderService.getReorderSuggestions(customerId));
+    }
+
     @GetMapping("/customer/{customerId}")
     public ResponseEntity<?> getCustomerOrders(
             @PathVariable String customerId,

@@ -21,7 +21,7 @@
     <properties>
         <java.version>26</java.version>
         <maven.compiler.proc>full</maven.compiler.proc>
-        <aws.java.sdk.version>2.49.4</aws.java.sdk.version>
+        <aws.java.sdk.version>2.51.0</aws.java.sdk.version>
     </properties>
 
     <dependencyManagement>

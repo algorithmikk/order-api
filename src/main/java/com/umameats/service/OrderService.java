@@ -22,6 +22,7 @@ import com.umameats.model.Order;
 import com.umameats.model.OrderCreatedEvent;
 import com.umameats.model.OrderItem;
 import com.umameats.model.OrderStatus;
+import com.umameats.model.ReorderSuggestion;
 import com.umameats.model.PickStatus;
 import com.umameats.model.TemperatureClass;
 import com.umameats.model.TransactionRequest;
@@ -42,6 +43,7 @@ public class OrderService {
     private final GeocodingService geocodingService;
     private final PricingService pricingService;
     private final TaxService taxService;
+    private final TasteProfileService tasteProfileService;
 
     /** Customer review window before shopping is auto-approved. */
     private static final long SHOPPING_APPROVAL_AUTO_APPROVE_MS = 10 * 60 * 1000L;
@@ -54,7 +56,8 @@ public class OrderService {
                         OrderEventProducer orderEventProducer,
                         GeocodingService geocodingService,
                         PricingService pricingService,
-                        TaxService taxService) {
+                        TaxService taxService,
+                        TasteProfileService tasteProfileService) {
         this.orderRepository = orderRepository;
         this.paymentApiClient = paymentApiClient;
         this.eventApiClient = eventApiClient;
@@ -62,6 +65,7 @@ public class OrderService {
         this.geocodingService = geocodingService;
         this.pricingService = pricingService;
         this.taxService = taxService;
+        this.tasteProfileService = tasteProfileService;
     }
 
     public Order createOrder(Order order) {
@@ -564,6 +568,44 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
+    public List<ReorderSuggestion> getReorderSuggestions(String customerId) {
+        Map<String, ReorderSuggestion> byStore = new HashMap<>();
+        for (Order order : getCustomerOrders(customerId)) {
+            if (order.getStatus() != OrderStatus.DELIVERED || order.getStoreId() == null) {
+                continue;
+            }
+            String lastItem = "";
+            List<String> names = new java.util.ArrayList<>();
+            if (order.getItems() != null) {
+                for (OrderItem item : order.getItems()) {
+                    if (item.getItemName() != null) {
+                        names.add(item.getItemName());
+                        lastItem = item.getItemName();
+                    }
+                }
+            }
+            ReorderSuggestion existing = byStore.get(order.getStoreId());
+            if (existing == null) {
+                byStore.put(order.getStoreId(), ReorderSuggestion.builder()
+                        .storeId(order.getStoreId())
+                        .storeName(order.getStoreName())
+                        .lastItemName(lastItem)
+                        .orderCount(1)
+                        .itemNames(names)
+                        .build());
+            } else {
+                existing.setOrderCount(existing.getOrderCount() + 1);
+                if (existing.getLastItemName() == null || existing.getLastItemName().isBlank()) {
+                    existing.setLastItemName(lastItem);
+                }
+            }
+        }
+        return byStore.values().stream()
+                .sorted(Comparator.comparingInt(ReorderSuggestion::getOrderCount).reversed())
+                .limit(8)
+                .toList();
+    }
+
     public List<Order> getStoreOrders(String storeId, String status) {
         return orderRepository.findByStoreIdAndStatus(storeId, status);
     }
@@ -693,6 +735,9 @@ public class OrderService {
             "timestamp", System.currentTimeMillis()
         );
         orderEventProducer.publishCustomerNotification(customerId, orderId, customerNotification);
+        if (newStatus == OrderStatus.DELIVERED) {
+            tasteProfileService.rebuildAsync(customerId);
+        }
 
         return updatedOrder;
     }
@@ -747,6 +792,9 @@ public class OrderService {
             "timestamp", System.currentTimeMillis()
         );
         orderEventProducer.publishCustomerNotification(updatedOrder.getCustomerId(), orderId, customerNotification);
+        if (newStatus == OrderStatus.DELIVERED) {
+            tasteProfileService.rebuildAsync(updatedOrder.getCustomerId());
+        }
 
         // If status changed to READY_FOR_PICKUP, create and send delivery event
         if (newStatus == OrderStatus.READY_FOR_PICKUP && oldStatus != OrderStatus.READY_FOR_PICKUP) {
@@ -835,6 +883,9 @@ public class OrderService {
         }
 
         Order updatedOrder = orderRepository.save(order);
+        if (newStatus == OrderStatus.DELIVERED) {
+            tasteProfileService.rebuildAsync(updatedOrder.getCustomerId());
+        }
 
         // Kafka / delivery-event fan-out can block 60s on missing topic metadata.
         // Persist first, then publish off-thread so ops PATCH stays responsive.
