@@ -39,9 +39,17 @@ public class ChatPushNotifier implements DeliveryChatNotifier {
         try {
             boolean fromDriver = ChatRole.DRIVER.name().equals(message.getSenderRole());
 
-            Optional<String> token = fromDriver
-                    ? pushTokenDirectory.findCustomerToken(order.getCustomerId())
-                    : driverToken(order);
+            Optional<String> token;
+            if (fromDriver) {
+                var device = pushTokenDirectory.findCustomer(order.getCustomerId()).orElse(null);
+                if (device == null || !device.hasExpoToken() || !device.driverMessages()) {
+                    log.debug("No chat push for customer on order {}", order.getOrderId());
+                    return;
+                }
+                token = Optional.of(device.expoPushToken());
+            } else {
+                token = driverToken(order);
+            }
 
             if (token.isEmpty()) {
                 log.debug("No push token for the counterpart on order {}", order.getOrderId());

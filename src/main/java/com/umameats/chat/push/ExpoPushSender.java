@@ -1,6 +1,7 @@
 package com.umameats.chat.push;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umameats.notify.NotificationCatalog;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -13,11 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Posts notifications to Expo's push service.
- *
- * <p>Mirrors the batch approach already proven in driver-api's ExpoPushService.
- * Every failure is swallowed and logged: a notification is an enhancement, and
- * an Expo outage must not surface as a failed chat message.
+ * Posts notifications to Expo's push service (APNs / FCM).
  */
 @Slf4j
 @Component
@@ -32,23 +29,42 @@ public class ExpoPushSender {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * @param channelId Android notification channel; chat uses its own so users
-     *                  can mute delivery offers without muting messages
-     */
     public void send(String expoPushToken, String title, String body, String channelId, Map<String, Object> data) {
+        send(expoPushToken, title, body, channelId, data, "active", null, true);
+    }
+
+    public void send(
+            String expoPushToken,
+            String title,
+            String body,
+            String channelId,
+            Map<String, Object> data,
+            String interruptionLevel,
+            String collapseId,
+            boolean sendBanner) {
         if (expoPushToken == null || expoPushToken.isBlank()) {
             return;
         }
 
         Map<String, Object> message = new HashMap<>();
         message.put("to", expoPushToken);
-        message.put("sound", "default");
-        message.put("title", title);
-        message.put("body", body);
         message.put("priority", "high");
-        message.put("channelId", channelId);
+        message.put("channelId", channelId != null ? channelId : "orders");
         message.put("data", data != null ? data : Map.of());
+        if (collapseId != null && !collapseId.isBlank()) {
+            message.put("collapseId", collapseId);
+        }
+        if (interruptionLevel != null && !interruptionLevel.isBlank()) {
+            message.put("interruptionLevel", interruptionLevel);
+        }
+
+        if (sendBanner && title != null && !title.isBlank()) {
+            message.put("title", title);
+            message.put("body", body != null ? body : "");
+            message.put("sound", "default");
+        } else {
+            message.put("_contentAvailable", true);
+        }
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -59,8 +75,22 @@ public class ExpoPushSender {
                     EXPO_PUSH_URL,
                     new HttpEntity<>(objectMapper.writeValueAsString(List.of(message)), headers),
                     String.class);
+            log.info("push.sent channel={} banner={} type={}",
+                    channelId, sendBanner, data != null ? data.get("type") : null);
         } catch (Exception e) {
             log.warn("Expo push send failed: {}", e.getMessage());
         }
+    }
+
+    public void sendCopy(String expoPushToken, NotificationCatalog.Copy copy, Map<String, Object> data, String collapseId) {
+        send(
+                expoPushToken,
+                copy.title,
+                copy.body,
+                copy.channelId,
+                data,
+                copy.interruptionLevel,
+                collapseId,
+                copy.sendBanner);
     }
 }
