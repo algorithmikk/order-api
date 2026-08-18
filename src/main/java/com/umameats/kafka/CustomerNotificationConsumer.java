@@ -86,10 +86,16 @@ public class CustomerNotificationConsumer {
                 KafkaPayload.stringVal(payload.get("newStatus")),
                 KafkaPayload.stringVal(payload.get("status")));
         Integer etaMinutes = firstInt(
+                payload.get("remainingEtaMinutes"),
                 payload.get("etaMinutes"),
                 payload.get("deliveryEtaMinutes"),
                 payload.get("eta"),
+                nested(payload, "metrics", "remainingEtaMinutes"),
                 nested(payload, "metrics", "deliveryEtaMinutes"));
+        Long arrivesAtMs = KafkaPayload.longVal(payload.get("arrivesAtMs"));
+        if (arrivesAtMs == null) {
+            arrivesAtMs = KafkaPayload.longVal(nested(payload, "metrics", "arrivesAtMs"));
+        }
 
         if (isEtaTopic(topic, eventType) && !shouldPublishEta(orderId, etaMinutes)) {
             return;
@@ -102,6 +108,14 @@ public class CustomerNotificationConsumer {
         }
         if (status == null && order.getStatus() != null) {
             status = order.getStatus().name();
+        }
+
+        if (isEtaTopic(topic, eventType) && arrivesAtMs != null) {
+            try {
+                orderRepository.updateLastArrivesAtMs(orderId, arrivesAtMs);
+            } catch (Exception e) {
+                log.warn("eta.persist_failed orderId={} err={}", orderId, e.getMessage());
+            }
         }
 
         NotificationCatalog.Copy copy = NotificationCatalog.customer(

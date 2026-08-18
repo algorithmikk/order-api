@@ -146,4 +146,15 @@ public class OrderRepository {
                 .flatMap(page -> page.items().stream())
                 .collect(Collectors.toList());
     }
+
+    /** Writes the ETA clock without clobbering concurrent order updates. */
+    public void updateLastArrivesAtMs(String orderId, long arrivesAtMs) {
+        dynamoDbClient.updateItem(UpdateItemRequest.builder()
+                .tableName(TABLE_NAME)
+                .key(Map.of("orderId", AttributeValue.fromS(orderId)))
+                .updateExpression("SET lastArrivesAtMs = :eta")
+                .expressionAttributeValues(Map.of(
+                        ":eta", AttributeValue.fromN(Long.toString(arrivesAtMs))))
+                .build());
+    }
 }

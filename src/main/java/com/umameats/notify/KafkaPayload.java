@@ -46,4 +46,18 @@ public final class KafkaPayload {
             return null;
         }
     }
+
+    public static Long longVal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 }

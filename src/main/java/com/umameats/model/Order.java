@@ -74,6 +74,8 @@ public class Order {
     private String proofOfDeliveryUrl;
     private String deliveryPin;
     private Long deliveredAt;
+    /** Last published absolute arrival clock (epoch ms) from the ETA engine. */
+    private Long lastArrivesAtMs;
 
     @DynamoDbConvertedBy(DeliveryPinAttributeConverter.class)
     public String getDeliveryPin() {
