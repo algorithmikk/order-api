@@ -31,6 +31,7 @@ public class DeliveryChatService {
     /** Statuses during which a driver is actively working the order. */
     private static final Set<OrderStatus> ACTIVE_STATUSES = EnumSet.of(
             OrderStatus.DRIVER_EN_ROUTE_TO_STORE,
+            OrderStatus.PICKING_UP,
             OrderStatus.DRIVER_SHOPPING,
             OrderStatus.AWAITING_SHOPPING_APPROVAL,
             OrderStatus.SHOPPING_COMPLETE,

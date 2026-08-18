@@ -32,6 +32,7 @@ public class SupportOrderAccess {
             OrderStatus.PREPARING,
             OrderStatus.READY_FOR_PICKUP,
             OrderStatus.DRIVER_EN_ROUTE_TO_STORE,
+            OrderStatus.PICKING_UP,
             OrderStatus.DRIVER_SHOPPING,
             OrderStatus.AWAITING_SHOPPING_APPROVAL,
             OrderStatus.SHOPPING_COMPLETE,

@@ -8,6 +8,8 @@ public enum OrderStatus {
     PREPARING,
     READY_FOR_PICKUP,
     DRIVER_EN_ROUTE_TO_STORE,
+    /** Driver started pickup at the store; bag is not confirmed yet. */
+    PICKING_UP,
     /** Driver is shopping the grocery list in-store. */
     DRIVER_SHOPPING,
     /** All line items resolved; waiting on customer to approve picks/substitutions or request changes. */

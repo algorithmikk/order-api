@@ -117,6 +117,8 @@ PENDING_PAYMENT → PAYMENT_FAILED
                                                       ↓
                                          DRIVER_EN_ROUTE_TO_STORE
                                                       ↓
+                                                  PICKING_UP
+                                                      ↓
                                                   PICKED_UP
                                                       ↓
                                              OUT_FOR_DELIVERY

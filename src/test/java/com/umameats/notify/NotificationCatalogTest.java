@@ -42,6 +42,28 @@ class NotificationCatalogTest {
     }
 
     @Test
+    void startPickupStaysSilentAssigned() {
+        NotificationCatalog.Copy copy = NotificationCatalog.customer(
+                "DELIVERY_STATUS_UPDATED", "PICKING_UP", "Demo Kitchen", "Alex", 12);
+        assertFalse(copy.sendBanner);
+        assertEquals("assigned", copy.phase);
+        assertEquals("PICKING_UP", copy.type);
+    }
+
+    @Test
+    void confirmPickupIsDistinctFromOutForDelivery() {
+        NotificationCatalog.Copy pickedUp = NotificationCatalog.customer(
+                "DELIVERY_STATUS_UPDATED", "PICKED_UP", "Demo Kitchen", "Alex", 10);
+        NotificationCatalog.Copy delivering = NotificationCatalog.customer(
+                "DELIVERY_STATUS_UPDATED", "OUT_FOR_DELIVERY", "Demo Kitchen", "Alex", 8);
+        assertTrue(pickedUp.sendBanner);
+        assertEquals("picked_up", pickedUp.phase);
+        assertEquals("PICKED_UP", pickedUp.type);
+        assertEquals("en_route", delivering.phase);
+        assertEquals("OUT_FOR_DELIVERY", delivering.type);
+    }
+
+    @Test
     void etaTicksAreSilentLiveUpdates() {
         NotificationCatalog.Copy copy = NotificationCatalog.customer(
                 "DELIVERY_ETA", "OUT_FOR_DELIVERY", "Demo Kitchen", "Alex", 8);

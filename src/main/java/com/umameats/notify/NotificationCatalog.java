@@ -108,6 +108,16 @@ public final class NotificationCatalog {
                     "orders", "time-sensitive", LiveAction.UPDATE, "shopping_review", 55,
                     "Review items", store, etaMinutes);
         }
+        if ("PICKING_UP".equals(s) || contains(t, "PICKING_UP")) {
+            return silent("PICKING_UP", LiveAction.UPDATE, "assigned", 50,
+                    store, "Picking up", etaMinutes);
+        }
+        if ("PICKED_UP".equals(s) || contains(t, "PICKED_UP")) {
+            return banner("PICKED_UP", "Picked up",
+                    "We’ll update you when they’re heading to you.",
+                    "orders", "active", LiveAction.UPDATE, "picked_up", 65,
+                    "Picked up", store, etaMinutes);
+        }
         if (isOutForDelivery(t, s)) {
             String body = eta.isEmpty()
                     ? driver + " is on the way with your order."
@@ -204,7 +214,15 @@ public final class NotificationCatalog {
             return silent("DELIVERY_ASSIGNED", LiveAction.START, "to_store", 25,
                     store, "Head to pickup", etaMinutes);
         }
-        if (isOutForDelivery(t, s) || "PICKED_UP".equals(s)) {
+        if ("PICKING_UP".equals(s) || contains(t, "PICKING_UP")) {
+            return silent("DELIVERY_STATUS_UPDATED", LiveAction.UPDATE, "to_store", 50,
+                    store, "At pickup", etaMinutes);
+        }
+        if ("PICKED_UP".equals(s) || contains(t, "PICKED_UP")) {
+            return silent("DELIVERY_STATUS_UPDATED", LiveAction.UPDATE, "picked_up", 65,
+                    store, "Picked up", etaMinutes);
+        }
+        if (isOutForDelivery(t, s)) {
             return banner("DELIVERY_STATUS_UPDATED", "Head to the customer",
                     eta.isEmpty() ? "Order picked up from " + store : eta + " to dropoff",
                     "deliveries", "active", LiveAction.UPDATE, "to_customer", 70,
@@ -238,8 +256,8 @@ public final class NotificationCatalog {
     }
 
     private static boolean isOutForDelivery(String eventType, String status) {
-        return "PICKED_UP".equals(status) || "OUT_FOR_DELIVERY".equals(status)
-                || contains(eventType, "PICKED_UP") || contains(eventType, "OUT_FOR_DELIVERY");
+        return "OUT_FOR_DELIVERY".equals(status)
+                || contains(eventType, "OUT_FOR_DELIVERY");
     }
 
     private static boolean isDelivered(String eventType, String status) {
@@ -254,9 +272,10 @@ public final class NotificationCatalog {
             case "CREATED", "CONFIRMED" -> "confirmed";
             case "PREPARING" -> "preparing";
             case "READY_FOR_PICKUP" -> "ready";
-            case "DRIVER_EN_ROUTE_TO_STORE" -> "assigned";
+            case "DRIVER_EN_ROUTE_TO_STORE", "PICKING_UP" -> "assigned";
             case "DRIVER_SHOPPING", "AWAITING_SHOPPING_APPROVAL", "SHOPPING_COMPLETE" -> "shopping";
-            case "PICKED_UP", "OUT_FOR_DELIVERY" -> "en_route";
+            case "PICKED_UP" -> "picked_up";
+            case "OUT_FOR_DELIVERY" -> "en_route";
             case "DELIVERED" -> "delivered";
             default -> fallback;
         };
@@ -268,8 +287,10 @@ public final class NotificationCatalog {
             case "PREPARING" -> 20;
             case "READY_FOR_PICKUP" -> 35;
             case "DRIVER_EN_ROUTE_TO_STORE" -> 45;
+            case "PICKING_UP" -> 50;
             case "DRIVER_SHOPPING", "AWAITING_SHOPPING_APPROVAL" -> 55;
-            case "PICKED_UP", "OUT_FOR_DELIVERY" -> 80;
+            case "PICKED_UP" -> 65;
+            case "OUT_FOR_DELIVERY" -> 80;
             case "DELIVERED" -> 100;
             default -> fallback;
         };

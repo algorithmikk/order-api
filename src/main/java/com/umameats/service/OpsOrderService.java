@@ -51,6 +51,7 @@ public class OpsOrderService {
             OrderStatus.PREPARING,
             OrderStatus.READY_FOR_PICKUP,
             OrderStatus.DRIVER_EN_ROUTE_TO_STORE,
+            OrderStatus.PICKING_UP,
             OrderStatus.PICKED_UP,
             OrderStatus.OUT_FOR_DELIVERY);
 
