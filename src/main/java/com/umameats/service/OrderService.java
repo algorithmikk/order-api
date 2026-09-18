@@ -7,7 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.umameats.client.EventApiClient;
 import com.umameats.client.PaymentApiClient;
@@ -107,6 +109,10 @@ public class OrderService {
 
         // Fetch store coordinates BEFORE creating order
         Map<String, Object> storeInfo = fetchStoreInfo(order.getStoreId());
+        if (!storeAcceptsDinerOrders(storeInfo)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This kitchen is not taking UmaMeats orders yet. The owner still needs to finish payouts and open the store.");
+        }
         Double restaurantLat = null;
         Double restaurantLng = null;
         String pickupAddress = null;
@@ -373,7 +379,40 @@ public class OrderService {
             return null;
         }
     }
-    
+
+    private static boolean storeAcceptsDinerOrders(Map<String, Object> storeInfo) {
+        if (storeInfo == null) {
+            return true;
+        }
+        String status = asString(storeInfo.get("status"));
+        if ("CLAIM_DRAFT".equals(status) || "REMOVED".equals(status) || "REMOVAL_REQUESTED".equals(status)) {
+            return false;
+        }
+        if (Boolean.FALSE.equals(asBoolean(storeInfo.get("isOpen")))) {
+            return false;
+        }
+        String source = asString(storeInfo.get("onboardingSource"));
+        if ("SELF_CLAIM".equals(source) && Boolean.FALSE.equals(asBoolean(storeInfo.get("payoutsReady")))) {
+            return false;
+        }
+        return true;
+    }
+
+    private static String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static Boolean asBoolean(Object value) {
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        if (value instanceof String s) {
+            if ("true".equalsIgnoreCase(s)) return true;
+            if ("false".equalsIgnoreCase(s)) return false;
+        }
+        return null;
+    }
+
     /**
      * Creates and sends a delivery event for the given order
      *
