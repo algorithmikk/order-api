@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.umameats.model.Order;
+import com.umameats.model.OrderAdjustment;
 import com.umameats.model.OrderStatus;
 import com.umameats.service.OrderService;
 
@@ -161,6 +162,22 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.status(400)
                 .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{orderId}/adjustments")
+    public ResponseEntity<?> recordAdjustment(
+            @PathVariable String orderId,
+            @RequestHeader("X-Store-Id") String storeId,
+            @RequestBody OrderAdjustment adjustment
+    ) {
+        try {
+            return ResponseEntity.ok(orderService.recordAdjustment(orderId, storeId, adjustment));
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(Map.of("error", e.getReason() == null ? "Adjustment failed" : e.getReason()));
+        } catch (Exception e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         }
     }
 

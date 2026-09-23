@@ -65,6 +65,10 @@ public class Order {
     private Integer prepTimeMinutes;
     /** True after the kitchen delays this ticket once. */
     private Boolean delayUsed;
+    /** Epoch millis when the diner asked for the order. Null means as soon as possible. */
+    private Long scheduledFor;
+    private String pickupNote;
+    private java.util.List<OrderAdjustment> adjustments;
     private Long shoppingCompletedAt;
     /** Epoch ms when the AWAITING_SHOPPING_APPROVAL review window started; drives 10-minute auto-approve. */
     private Long shoppingApprovalRequestedAt;

@@ -21,6 +21,7 @@ import com.umameats.model.DeliveryPinAttributeConverter;
 import com.umameats.model.EventRequest;
 import com.umameats.model.FulfillmentMode;
 import com.umameats.model.Order;
+import com.umameats.model.OrderAdjustment;
 import com.umameats.model.OrderCreatedEvent;
 import com.umameats.model.OrderItem;
 import com.umameats.model.OrderStatus;
@@ -149,6 +150,10 @@ public class OrderService {
             log.info("Fetched restaurant info for store {}: name={}, phone={}, address={}, coordinates=({}, {})",
                 order.getStoreId(), storeName, storePhone, pickupAddress, restaurantLat, restaurantLng);
             order.setPrepTimeMinutes(promisedPrepMinutes(storeInfo));
+            if (storeInfo.get("pickupNote") != null) {
+                order.setPickupNote(String.valueOf(storeInfo.get("pickupNote")));
+            }
+            rejectOutsideOwnDriverRadius(storeInfo, restaurantLat, restaurantLng, order);
         } else {
             log.warn("Failed to fetch restaurant info for store {}", order.getStoreId());
         }
@@ -383,6 +388,41 @@ public class OrderService {
             log.error("Error fetching store info for store {}: {}", storeId, e.getMessage());
             return null;
         }
+    }
+
+    private static void rejectOutsideOwnDriverRadius(
+            Map<String, Object> storeInfo,
+            Double restaurantLat,
+            Double restaurantLng,
+            Order order
+    ) {
+        if (!"OWN_DRIVERS_ONLY".equals(String.valueOf(storeInfo.get("deliveryPreference")))) {
+            return;
+        }
+        Object rawRadius = storeInfo.get("deliveryRadiusKm");
+        if (!(rawRadius instanceof Number radiusNumber) || radiusNumber.doubleValue() <= 0) {
+            return;
+        }
+        DeliveryAddress address = order.getDeliveryAddress();
+        if (address == null || address.getLatitude() == null || address.getLongitude() == null
+                || restaurantLat == null || restaurantLng == null) {
+            return;
+        }
+        double km = haversineKm(restaurantLat, restaurantLng, address.getLatitude(), address.getLongitude());
+        if (km > radiusNumber.doubleValue()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This address is outside the kitchen's own-driver delivery area.");
+        }
+    }
+
+    private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double earth = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return earth * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private static int promisedPrepMinutes(Map<String, Object> storeInfo) {
@@ -873,6 +913,26 @@ public class OrderService {
         }
 
         return updatedOrder;
+    }
+
+    public Order recordAdjustment(String orderId, String storeId, OrderAdjustment adjustment) {
+        if (adjustment == null || adjustment.getReason() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "An adjustment reason is required");
+        }
+        Order order = orderRepository.findById(orderId, null)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        if (!order.getStoreId().equals(storeId)) {
+            throw new RuntimeException("Access denied - order does not belong to this store");
+        }
+        if (adjustment.getStatus() == null) {
+            adjustment.setStatus("OPEN");
+        }
+        java.util.List<OrderAdjustment> rows = order.getAdjustments() == null
+                ? new java.util.ArrayList<>()
+                : new java.util.ArrayList<>(order.getAdjustments());
+        rows.add(adjustment);
+        order.setAdjustments(rows);
+        return orderRepository.save(order);
     }
 
     public Order delayOrderOnce(String orderId, String storeId, int minutes) {
