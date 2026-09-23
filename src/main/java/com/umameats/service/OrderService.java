@@ -148,6 +148,7 @@ public class OrderService {
 
             log.info("Fetched restaurant info for store {}: name={}, phone={}, address={}, coordinates=({}, {})",
                 order.getStoreId(), storeName, storePhone, pickupAddress, restaurantLat, restaurantLng);
+            order.setPrepTimeMinutes(promisedPrepMinutes(storeInfo));
         } else {
             log.warn("Failed to fetch restaurant info for store {}", order.getStoreId());
         }
@@ -382,6 +383,21 @@ public class OrderService {
             log.error("Error fetching store info for store {}: {}", storeId, e.getMessage());
             return null;
         }
+    }
+
+    private static int promisedPrepMinutes(Map<String, Object> storeInfo) {
+        int base = 20;
+        Object raw = storeInfo.get("defaultPrepMinutes");
+        if (raw instanceof Number number && number.intValue() >= 5) {
+            base = number.intValue();
+        }
+        String level = storeInfo.get("busyLevel") == null ? "NORMAL" : String.valueOf(storeInfo.get("busyLevel"));
+        int extra = switch (level) {
+            case "BUSY" -> 10;
+            case "VERY_BUSY" -> 20;
+            default -> 0;
+        };
+        return base + extra;
     }
 
     private static boolean storeIsPaused(Map<String, Object> storeInfo) {
@@ -857,6 +873,26 @@ public class OrderService {
         }
 
         return updatedOrder;
+    }
+
+    public Order delayOrderOnce(String orderId, String storeId, int minutes) {
+        if (minutes != 5 && minutes != 10 && minutes != 20 && minutes != 30) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Delay must be 5, 10, 20, or 30 minutes");
+        }
+        Order order = orderRepository.findById(orderId, null)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        if (!order.getStoreId().equals(storeId)) {
+            throw new RuntimeException("Access denied - order does not belong to this store");
+        }
+        if (Boolean.TRUE.equals(order.getDelayUsed())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This order was already delayed once");
+        }
+        int current = order.getPrepTimeMinutes() == null ? 20 : order.getPrepTimeMinutes();
+        order.setPrepTimeMinutes(current + minutes);
+        order.setDelayUsed(true);
+        Order saved = orderRepository.save(order);
+        log.info("Restaurant delayed order {} by {} minutes", orderId, minutes);
+        return saved;
     }
 
     /**

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.umameats.model.Order;
 import com.umameats.model.OrderStatus;
@@ -157,6 +158,24 @@ public class OrderController {
         try {
             Order updatedOrder = orderService.updateOrderStatusByRestaurant(orderId, storeId, status);
             return ResponseEntity.ok(updatedOrder);
+        } catch (Exception e) {
+            return ResponseEntity.status(400)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PatchMapping("/{orderId}/delay")
+    public ResponseEntity<?> delayOrder(
+            @PathVariable String orderId,
+            @RequestHeader("X-Store-Id") String storeId,
+            @RequestBody Map<String, Integer> body
+    ) {
+        try {
+            int minutes = body.getOrDefault("minutes", 0);
+            return ResponseEntity.ok(orderService.delayOrderOnce(orderId, storeId, minutes));
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                .body(Map.of("error", e.getReason() == null ? "Delay failed" : e.getReason()));
         } catch (Exception e) {
             return ResponseEntity.status(400)
                 .body(Map.of("error", e.getMessage()));

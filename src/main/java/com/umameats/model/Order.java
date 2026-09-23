@@ -61,6 +61,10 @@ public class Order {
     private String customerSubstitutionPreference;
     private Boolean requiresIsothermalBag;
     private Long shoppingStartedAt;
+    /** Prep promise in minutes, including busy-mode extra and a one-time delay. */
+    private Integer prepTimeMinutes;
+    /** True after the kitchen delays this ticket once. */
+    private Boolean delayUsed;
     private Long shoppingCompletedAt;
     /** Epoch ms when the AWAITING_SHOPPING_APPROVAL review window started; drives 10-minute auto-approve. */
     private Long shoppingApprovalRequestedAt;
