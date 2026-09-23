@@ -109,6 +109,10 @@ public class OrderService {
 
         // Fetch store coordinates BEFORE creating order
         Map<String, Object> storeInfo = fetchStoreInfo(order.getStoreId());
+        if (storeIsPaused(storeInfo)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This kitchen has paused new orders. Try again when they resume.");
+        }
         if (!storeAcceptsDinerOrders(storeInfo)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This kitchen is not taking UmaMeats orders yet. The owner still needs to finish payouts and open the store.");
@@ -378,6 +382,17 @@ public class OrderService {
             log.error("Error fetching store info for store {}: {}", storeId, e.getMessage());
             return null;
         }
+    }
+
+    private static boolean storeIsPaused(Map<String, Object> storeInfo) {
+        if (storeInfo == null) {
+            return false;
+        }
+        Object raw = storeInfo.get("pauseUntil");
+        if (!(raw instanceof Number number)) {
+            return false;
+        }
+        return number.longValue() > System.currentTimeMillis();
     }
 
     private static boolean storeAcceptsDinerOrders(Map<String, Object> storeInfo) {
