@@ -1,4 +1,4 @@
-name: Deploy to Amazon ECS
+name: Deploy to EKS
 
 on:
   push:
@@ -140,34 +140,29 @@ jobs:
         IMAGE: ${{ steps.build-image.outputs.image }}
       run: docker push "$IMAGE"
 
-    - name: Substitute environment placeholders in task definition
-      env:
-        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-        KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}
-        TWILIO_CONTENT_TEMPLATE_SID: ${{ secrets.TWILIO_CONTENT_TEMPLATE_SID }}
+    - name: Install kubectl
       run: |
-        envsubst < ${{ env.ECS_TASK_DEFINITION }} > .aws/task-definition.rendered.json
-        mv .aws/task-definition.rendered.json ${{ env.ECS_TASK_DEFINITION }}
+        curl -fsSL -o kubectl "https://dl.k8s.io/release/v1.36.0/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/kubectl
 
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: ${{ env.ECS_TASK_DEFINITION }}
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-image.outputs.image }}
-
-    - name: Deploy Amazon ECS task definition
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
+    - name: Deploy to EKS
+      env:
+        IMAGE: ${{ steps.build-image.outputs.image }}
+      run: |
+        set -euo pipefail
+        aws eks update-kubeconfig --name umameats-api --region us-east-1
+        kubectl -n umameats set image deployment/${ECR_REPOSITORY} ${ECR_REPOSITORY}="$IMAGE"
+        kubectl -n umameats rollout status deployment/${ECR_REPOSITORY} --timeout=600s
 
     - name: Post-deploy ALB smoke
       run: |
         set -euo pipefail
+        ALB_HOST="${{ vars.ALB_DNS_NAME }}"
+        if [ -n "$ALB_HOST" ]; then
+          IP=$(getent ahostsv4 "$ALB_HOST" | awk '{print $1; exit}')
+          echo "$IP api.umameats.com" | sudo tee -a /etc/hosts
+        fi
         VERSION=8.0.1
         curl --location --remote-name \
           "https://github.com/Orange-OpenSource/hurl/releases/download/${VERSION}/hurl_${VERSION}_amd64.deb"
